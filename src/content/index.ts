@@ -12,7 +12,7 @@ import { isEnglish } from "../shared/rule-engine.ts";
 import { scanSplit, toChunkedString } from "../shared/scan-rules.ts";
 import {
   loadFrequencyList, loadDictionary, loadLemmaMap,
-  annotateWords, toNewWordsFormat, isLoaded,
+  annotateWords, toNewWordsFormat, isLoaded, lookupWordDefinition,
 } from "../shared/vocab.ts";
 import type { BaitConfig, ChunkResult, BackgroundMessage } from "../shared/types.ts";
 import { DEFAULT_CONFIG } from "../shared/types.ts";
@@ -43,7 +43,12 @@ const knownWords = new Set<string>(); // 用户已掌握的词（从 storage 加
 let tooltipEl: HTMLElement | null = null;
 
 let tooltipHideTimer: ReturnType<typeof setTimeout> | null = null;
-let currentTooltipWord: string | null = null;
+let currentTooltipData: {
+  word: string;
+  definition: string;
+  sentence: string;
+  sourceUrl: string;
+} | null = null;
 
 function setupTooltip(): void {
   if (tooltipEl) return;
@@ -62,6 +67,7 @@ function setupTooltip(): void {
 
   document.addEventListener("mouseover", onWordHover);
   document.addEventListener("mouseout", onWordLeave);
+  document.addEventListener("click", onDocumentWordClick, true);
   document.addEventListener("mouseover", onTriggerParentHover);
   document.addEventListener("mouseout", onTriggerParentLeave);
 }
@@ -70,19 +76,43 @@ function scheduleHideTooltip(): void {
   if (tooltipHideTimer) clearTimeout(tooltipHideTimer);
   tooltipHideTimer = setTimeout(() => {
     if (tooltipEl) tooltipEl.style.display = "none";
-    currentTooltipWord = null;
+    currentTooltipData = null;
     tooltipHideTimer = null;
   }, 150);
 }
 
 async function onTooltipClick(e: MouseEvent): Promise<void> {
-  const btn = (e.target as Element).closest?.(".enlearn-tooltip-btn");
-  if (!btn || !currentTooltipWord) return;
+  const btn = (e.target as Element).closest?.(".enlearn-tooltip-btn") as HTMLElement | null;
+  if (!btn || !currentTooltipData) return;
+  e.preventDefault();
+  e.stopPropagation();
 
-  const word = currentTooltipWord;
+  const { word, definition, sentence, sourceUrl } = currentTooltipData;
+  const action = btn.dataset.action;
+
+  if (action === "speak") {
+    speakWord(word);
+    return;
+  }
+
+  if (action === "add") {
+    await sendMessage({
+      type: "addVocabWord",
+      word,
+      definition,
+      sentence,
+      source_url: sourceUrl,
+      source_hostname: window.location.hostname,
+    });
+    btn.textContent = "已加入";
+    btn.classList.add("is-done");
+    return;
+  }
+
+  if (action !== "master") return;
+
   knownWords.add(word);
 
-  // Save to storage
   try {
     await chrome.storage.local.set({ knownWords: [...knownWords] });
     await sendMessage({ type: "markWordMastered", word });
@@ -98,7 +128,7 @@ async function onTooltipClick(e: MouseEvent): Promise<void> {
 
   // Hide tooltip
   if (tooltipEl) tooltipEl.style.display = "none";
-  currentTooltipWord = null;
+  currentTooltipData = null;
 }
 
 function onWordHover(e: MouseEvent): void {
@@ -111,22 +141,57 @@ function onWordHover(e: MouseEvent): void {
   // Cancel any pending hide
   if (tooltipHideTimer) { clearTimeout(tooltipHideTimer); tooltipHideTimer = null; }
 
-  currentTooltipWord = (wordEl.dataset.word || wordEl.textContent || "").toLowerCase();
-  tooltipEl.innerHTML = `<span class="enlearn-tooltip-def">${escapeHtml(def)}</span><button class="enlearn-tooltip-btn" title="标记为已掌握">✓</button>`;
+  const word = (wordEl.dataset.word || wordEl.textContent || "").toLowerCase();
+  const sentence = getSentenceForElement(wordEl, word);
+  showWordTooltip({
+    word,
+    definition: def,
+    sentence,
+    sourceUrl: window.location.href,
+    rect: wordEl.getBoundingClientRect(),
+  });
+}
+
+function showWordTooltip({
+  word,
+  definition,
+  sentence,
+  sourceUrl,
+  rect,
+}: {
+  word: string;
+  definition: string;
+  sentence: string;
+  sourceUrl: string;
+  rect: DOMRect;
+}): void {
+  if (!tooltipEl) return;
+
+  if (tooltipHideTimer) { clearTimeout(tooltipHideTimer); tooltipHideTimer = null; }
+
+  currentTooltipData = { word, definition, sentence, sourceUrl };
+  tooltipEl.innerHTML = `
+    <div class="enlearn-tooltip-main">
+      <div class="enlearn-tooltip-word">${escapeHtml(word)}</div>
+      <div class="enlearn-tooltip-def">${escapeHtml(definition || "未找到离线释义，可先加入生词本后用语境复习。")}</div>
+    </div>
+    <button class="enlearn-tooltip-btn" data-action="speak" title="听发音" aria-label="听发音">🔊</button>
+    <button class="enlearn-tooltip-btn enlearn-tooltip-add" data-action="add" title="加入生词本">加入</button>
+    <button class="enlearn-tooltip-btn" data-action="master" title="标记为已掌握">✓</button>
+  `;
   tooltipEl.style.display = "flex";
 
-  const wordRect = wordEl.getBoundingClientRect();
   const tipRect = tooltipEl.getBoundingClientRect();
 
-  let left = wordRect.left + wordRect.width / 2 - tipRect.width / 2;
-  let top = wordRect.top - tipRect.height - 6;
+  let left = rect.left + rect.width / 2 - tipRect.width / 2;
+  let top = rect.top - tipRect.height - 8;
 
   if (left < 4) left = 4;
   if (left + tipRect.width > window.innerWidth - 4) {
     left = window.innerWidth - 4 - tipRect.width;
   }
   if (top < 4) {
-    top = wordRect.bottom + 6;
+    top = rect.bottom + 8;
   }
 
   tooltipEl.style.left = `${left}px`;
@@ -141,6 +206,110 @@ function onWordLeave(e: MouseEvent): void {
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function speakWord(word: string): void {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(word);
+  utterance.lang = "en-US";
+  utterance.rate = 0.9;
+  window.speechSynthesis.speak(utterance);
+}
+
+function shouldIgnoreWordClick(target: Element): boolean {
+  return !!target.closest(
+    ".enlearn-tooltip, .enlearn-trigger, button, input, textarea, select, [contenteditable='true'], [role='button'], [role='menuitem'], nav, header, footer"
+  );
+}
+
+function getRangeFromPoint(x: number, y: number): Range | null {
+  const docWithCaret = document as Document & {
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+  };
+
+  if (docWithCaret.caretRangeFromPoint) {
+    return docWithCaret.caretRangeFromPoint(x, y);
+  }
+
+  const pos = docWithCaret.caretPositionFromPoint?.(x, y);
+  if (!pos) return null;
+  const range = document.createRange();
+  range.setStart(pos.offsetNode, pos.offset);
+  range.collapse(true);
+  return range;
+}
+
+function getWordRangeFromPoint(x: number, y: number): { range: Range; word: string } | null {
+  const range = getRangeFromPoint(x, y);
+  const node = range?.startContainer;
+  if (!node || node.nodeType !== Node.TEXT_NODE) return null;
+
+  const text = node.textContent ?? "";
+  const offset = Math.min(range.startOffset, text.length);
+  const matches = [...text.matchAll(/[A-Za-z]+(?:['-][A-Za-z]+)*/g)];
+  const match = matches.find((m) => {
+    const start = m.index ?? 0;
+    const end = start + m[0].length;
+    return offset >= start && offset <= end;
+  });
+  if (!match || match.index === undefined) return null;
+
+  const wordRange = document.createRange();
+  wordRange.setStart(node, match.index);
+  wordRange.setEnd(node, match.index + match[0].length);
+  return { range: wordRange, word: match[0].toLowerCase() };
+}
+
+function selectRange(range: Range): void {
+  const selection = window.getSelection();
+  if (!selection) return;
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function getSentenceForElement(el: Element, word: string): string {
+  const original = el.closest("[data-original]")?.getAttribute("data-original");
+  const raw = original || extractTextFromDOM(getTextContainer(el) ?? el).trim();
+  return pickSentenceContaining(raw, word);
+}
+
+function getTextContainer(el: Element): Element | null {
+  return el.closest(
+    ".enlearn-chunked, [data-testid='tweetText'], article p, main p, [role='main'] p, .content p, .post p, .entry-content p"
+  );
+}
+
+function pickSentenceContaining(text: string, word: string): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return word;
+  const sentences = normalized.split(/(?<=[.!?])\s+/);
+  const pattern = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+  return sentences.find((sentence) => pattern.test(sentence)) ?? normalized;
+}
+
+function onDocumentWordClick(e: MouseEvent): void {
+  if (!isActive || isPaused || e.defaultPrevented) return;
+  const target = e.target as Element | null;
+  if (!target || shouldIgnoreWordClick(target)) return;
+  if (target.closest("a[href]") && !target.closest(".enlearn-word")) return;
+
+  const result = getWordRangeFromPoint(e.clientX, e.clientY);
+  if (!result) return;
+
+  const definition = lookupWordDefinition(result.word) ?? "";
+  const rect = result.range.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) return;
+
+  selectRange(result.range);
+  showWordTooltip({
+    word: result.word,
+    definition,
+    sentence: getSentenceForElement(target, result.word),
+    sourceUrl: window.location.href,
+    rect,
+  });
 }
 
 function onTriggerParentHover(e: MouseEvent): void {

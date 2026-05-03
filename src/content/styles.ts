@@ -75,11 +75,11 @@ export const ENLEARN_STYLES = `
   display: none;
   background: #1a1a2e;
   color: #e2e8f0;
-  padding: 6px 10px;
-  border-radius: 8px;
+  padding: 10px 11px;
+  border-radius: 10px;
   font-size: 13px;
   line-height: 1.5;
-  white-space: nowrap;
+  white-space: normal;
   z-index: 2147483647;
   pointer-events: auto;
   box-shadow: 0 4px 16px rgba(0,0,0,0.25);
@@ -87,10 +87,25 @@ export const ENLEARN_STYLES = `
   display: none;
   align-items: center;
   gap: 8px;
+  max-width: 360px;
+}
+
+.enlearn-tooltip-main {
+  min-width: 0;
+  max-width: 230px;
+}
+
+.enlearn-tooltip-word {
+  font-weight: 700;
+  color: #f8fafc;
+  margin-bottom: 2px;
 }
 
 .enlearn-tooltip-def {
-  display: inline;
+  display: block;
+  color: rgba(226,232,240,0.76);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .enlearn-tooltip-btn {
@@ -114,6 +129,19 @@ export const ENLEARN_STYLES = `
 }
 
 .enlearn-tooltip-btn:hover {
+  background: rgba(34,197,94,0.15);
+  border-color: rgba(34,197,94,0.5);
+  color: #4ade80;
+}
+
+.enlearn-tooltip-add {
+  width: auto;
+  min-width: 42px;
+  border-radius: 999px;
+  padding: 0 9px;
+}
+
+.enlearn-tooltip-btn.is-done {
   background: rgba(34,197,94,0.15);
   border-color: rgba(34,197,94,0.5);
   color: #4ade80;

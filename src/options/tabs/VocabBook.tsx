@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { VocabRecord, VocabStatus } from "../../shared/types.ts";
+import type {
+  StudyAdviceResult,
+  VocabPracticeSentence,
+  VocabRecord,
+  VocabStatus,
+} from "../../shared/types.ts";
 import { vocabContextDAO, vocabDAO } from "../../shared/db.ts";
 import {
   buildVocabEntries,
@@ -7,6 +12,7 @@ import {
   exportVocabToMarkdown,
   type VocabWithContexts,
 } from "../../shared/vocab-export.ts";
+import { buildLocalStudyAdvice, generateLocalPracticeSentence } from "../../shared/vocab-study.ts";
 import { EmptyState } from "../components/EmptyState.tsx";
 import { GlassCard } from "../components/GlassCard.tsx";
 import { FilterChip } from "../components/FilterChip.tsx";
@@ -75,6 +81,9 @@ export function VocabBook({ db }: VocabBookProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("recent");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [practice, setPractice] = useState<VocabPracticeSentence | null>(null);
+  const [advice, setAdvice] = useState<StudyAdviceResult | null>(null);
+  const [copyLabel, setCopyLabel] = useState("复制给 Codex");
 
   const loadData = useCallback(async () => {
     if (!db) return;
@@ -150,11 +159,53 @@ export function VocabBook({ db }: VocabBookProps) {
     );
   };
 
+  const requestPractice = async (word?: string) => {
+    try {
+      const response = await chrome.runtime.sendMessage({ type: "generatePracticeSentence", word }) as {
+        ok?: boolean;
+        result?: VocabPracticeSentence | null;
+      };
+      setPractice(response.result ?? generateLocalPracticeSentence(entries, word));
+    } catch {
+      setPractice(generateLocalPracticeSentence(entries, word));
+    }
+  };
+
+  const requestAdvice = async () => {
+    try {
+      const response = await chrome.runtime.sendMessage({ type: "generateStudyAdvice" }) as {
+        ok?: boolean;
+        result?: StudyAdviceResult;
+      };
+      setAdvice(response.result ?? buildLocalStudyAdvice(entries));
+    } catch {
+      setAdvice(buildLocalStudyAdvice(entries));
+    }
+  };
+
+  const speakPractice = () => {
+    if (!practice || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(practice.sentence);
+    utterance.lang = "en-US";
+    utterance.rate = 0.86;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const copyCodexPrompt = async () => {
+    const prompt = (advice ?? buildLocalStudyAdvice(entries)).codex_prompt;
+    await navigator.clipboard.writeText(prompt);
+    setCopyLabel("已复制");
+    setTimeout(() => setCopyLabel("复制给 Codex"), 1200);
+  };
+
   if (loading) return null;
 
   if (entries.length === 0) {
     return <EmptyState text="还没有生词，去浏览英文网页，标出来的词会自动攒在这" />;
   }
+
+  const currentAdvice = advice ?? buildLocalStudyAdvice(entries);
 
   return (
     <>
@@ -198,6 +249,55 @@ export function VocabBook({ db }: VocabBookProps) {
             onClick={() => setStatusFilter(status)}
           />
         ))}
+      </div>
+
+      <div className="vocab-study-grid rv">
+        <GlassCard className="vocab-study-card">
+          <div className="vocab-study-top">
+            <div>
+              <div className="vocab-study-title">读句测验</div>
+              <div className="vocab-study-sub">从你的生词本里抽词生成句子</div>
+            </div>
+            <button className="vocab-export-btn" onClick={() => requestPractice()} type="button">
+              下一句
+            </button>
+          </div>
+          {practice ? (
+            <div className="vocab-practice">
+              <div className="vocab-practice-word">{practice.word}</div>
+              <div className="vocab-practice-def">{practice.definition}</div>
+              <div className="vocab-practice-sentence">{practice.sentence}</div>
+              <div className="vocab-practice-hint">{practice.chinese_hint}</div>
+              <button className="vocab-export-btn" onClick={speakPractice} type="button">朗读</button>
+            </div>
+          ) : (
+            <div className="vocab-study-empty">点击“下一句”开始</div>
+          )}
+        </GlassCard>
+
+        <GlassCard className="vocab-study-card">
+          <div className="vocab-study-top">
+            <div>
+              <div className="vocab-study-title">学习建议</div>
+              <div className="vocab-study-sub">根据生词规模、状态和语境估计水平</div>
+            </div>
+            <button className="vocab-export-btn" onClick={requestAdvice} type="button">
+              更新建议
+            </button>
+          </div>
+          <div className="vocab-advice">
+            <div className="vocab-advice-level">{currentAdvice.level}</div>
+            <div className="vocab-advice-summary">{currentAdvice.summary}</div>
+            <div className="vocab-advice-steps">
+              {currentAdvice.next_steps.map((step) => (
+                <div key={step}>{step}</div>
+              ))}
+            </div>
+            <button className="vocab-export-btn" onClick={copyCodexPrompt} type="button">
+              {copyLabel}
+            </button>
+          </div>
+        </GlassCard>
       </div>
 
       {filteredEntries.length === 0 ? (
@@ -258,6 +358,12 @@ export function VocabBook({ db }: VocabBookProps) {
                         type="button"
                       >
                         已掌握
+                      </button>
+                      <button
+                        onClick={() => requestPractice(vocab.word)}
+                        type="button"
+                      >
+                        用它练句
                       </button>
                     </div>
 

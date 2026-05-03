@@ -956,6 +956,74 @@ body {
   color: rgba(255,255,255,0.16);
 }
 
+.vocab-study-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.vocab-study-card {
+  padding: 18px 20px;
+}
+
+.vocab-study-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.vocab-study-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.78);
+}
+
+.vocab-study-sub,
+.vocab-study-empty {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.22);
+}
+
+.vocab-practice,
+.vocab-advice {
+  margin-top: 16px;
+}
+
+.vocab-practice-word,
+.vocab-advice-level {
+  color: #f87171;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.vocab-practice-def,
+.vocab-practice-hint,
+.vocab-advice-summary {
+  margin-top: 5px;
+  color: rgba(255,255,255,0.4);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.vocab-practice-sentence {
+  margin: 14px 0 10px;
+  color: rgba(255,255,255,0.72);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.vocab-advice-steps {
+  margin: 12px 0;
+  display: grid;
+  gap: 7px;
+  color: rgba(255,255,255,0.36);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 @media (max-width: 760px) {
   .vocab-book-head,
   .vocab-card-main {
@@ -964,6 +1032,10 @@ body {
   }
 
   .vocab-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .vocab-study-grid {
     grid-template-columns: 1fr;
   }
 

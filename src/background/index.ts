@@ -13,8 +13,10 @@ import type { Message, BaitConfig, ChunkResult, PatternKey } from "../shared/typ
 import { DEFAULT_CONFIG, resolveLLMConfig, migrateLLMConfig } from "../shared/types.ts";
 import { getCachedBatch, setCacheBatch } from "../shared/cache.ts";
 import { chunkSentences, analyzeSentenceFull } from "../shared/llm-adapter.ts";
-import { openDB as openDataDB, pendingSentenceDAO, learningRecordDAO, vocabDAO } from "../shared/db.ts";
+import { openDB as openDataDB, pendingSentenceDAO, learningRecordDAO, vocabContextDAO, vocabDAO } from "../shared/db.ts";
 import { recordVocabEncounters } from "../shared/vocab-recording.ts";
+import { buildVocabEntries } from "../shared/vocab-export.ts";
+import { buildLocalStudyAdvice, generateLocalPracticeSentence } from "../shared/vocab-study.ts";
 
 // ========== 配置管理 ==========
 
@@ -408,6 +410,17 @@ async function handleMessage(
       }
     }
 
+    case "addVocabWord": {
+      const db = await getDB();
+      await recordVocabEncounters(
+        db,
+        [{ word: message.word, definition: message.definition ?? "" }],
+        message.sentence,
+        message.source_url
+      );
+      return { ok: true };
+    }
+
     case "markWordMastered": {
       const db = await getDB();
       const word = message.word.trim().toLowerCase();
@@ -424,6 +437,31 @@ async function handleMessage(
         await vocabDAO.markMastered(db, created.id);
       }
       return { ok: true };
+    }
+
+    case "generatePracticeSentence": {
+      const db = await getDB();
+      const [vocab, contexts] = await Promise.all([
+        vocabDAO.getAll(db),
+        vocabContextDAO.getAll(db),
+      ]);
+      const entries = buildVocabEntries(vocab, contexts);
+      return {
+        ok: true,
+        result: generateLocalPracticeSentence(entries, message.word),
+      };
+    }
+
+    case "generateStudyAdvice": {
+      const db = await getDB();
+      const [vocab, contexts] = await Promise.all([
+        vocabDAO.getAll(db),
+        vocabContextDAO.getAll(db),
+      ]);
+      return {
+        ok: true,
+        result: buildLocalStudyAdvice(buildVocabEntries(vocab, contexts)),
+      };
     }
 
     case "analyzeSentences": {

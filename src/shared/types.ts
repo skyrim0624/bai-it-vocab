@@ -114,7 +114,17 @@ export type Message =
       new_words: string[];
       new_word_details?: { word: string; definition: string }[];
     }
+  | {
+      type: "addVocabWord";
+      word: string;
+      definition?: string;
+      sentence: string;
+      source_url: string;
+      source_hostname: string;
+    }
   | { type: "markWordMastered"; word: string }
+  | { type: "generatePracticeSentence"; word?: string }
+  | { type: "generateStudyAdvice" }
   | { type: "analyzeSentences"; sentenceIds: string[] };
 
 export type BackgroundMessage =
@@ -155,6 +165,24 @@ export interface FullAnalysisResult {
   expression_tips: string;
   new_words: { word: string; definition: string }[];
   is_worth_practicing: boolean;
+}
+
+export interface VocabPracticeSentence {
+  word: string;
+  definition: string;
+  sentence: string;
+  chinese_hint: string;
+  source: "local" | "context" | "llm";
+}
+
+export interface StudyAdviceResult {
+  level: string;
+  summary: string;
+  next_steps: string[];
+  review_words: string[];
+  expansion_words: string[];
+  codex_prompt: string;
+  source: "local" | "llm";
 }
 
 // ========== IndexedDB 数据层（10 张表） ==========

@@ -157,6 +157,12 @@ function lookupDictionary(word: string): string | null {
   return null;
 }
 
+/** 查询单词释义，不套用常用词过滤，用于用户主动点词。 */
+export function lookupWordDefinition(word: string): string | null {
+  if (shouldSkipWord(word)) return null;
+  return lookupDictionary(word);
+}
+
 /**
  * 标注文本中的生词
  *
