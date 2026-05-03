@@ -4,10 +4,11 @@ const TAB_LABELS: Record<TabKey, string> = {
   dashboard: "总览",
   review: "每日回味",
   sentences: "难句集",
+  vocab: "生词本",
   settings: "设置",
 };
 
-const TAB_ORDER: TabKey[] = ["dashboard", "review", "sentences", "settings"];
+const TAB_ORDER: TabKey[] = ["dashboard", "review", "sentences", "vocab", "settings"];
 
 interface NavBarProps {
   activeTab: TabKey;

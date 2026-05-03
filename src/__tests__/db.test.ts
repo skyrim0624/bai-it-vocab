@@ -18,6 +18,7 @@ import {
   wallpaperRecordDAO,
   pendingSentenceDAO,
 } from "../shared/db";
+import { recordVocabEncounters } from "../shared/vocab-recording";
 
 let db: IDBDatabase;
 
@@ -911,6 +912,114 @@ describe("learningRecordDAO.getBySentence", () => {
 // ========== 跨表场景 ==========
 
 describe("跨表业务场景", () => {
+  it("recordVocabEncounters 首次遇到生词会创建词条和语境", async () => {
+    await recordVocabEncounters(
+      db,
+      [{ word: "prestigious", definition: "有声望的" }],
+      "The team published the work in a prestigious journal.",
+      "https://example.com/a"
+    );
+
+    const vocab = await vocabDAO.getByWord(db, "prestigious");
+    expect(vocab).toBeDefined();
+    expect(vocab!.definition).toBe("有声望的");
+    expect(vocab!.encounter_count).toBe(1);
+
+    const contexts = await vocabContextDAO.getByVocabId(db, vocab!.id);
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0].context_definition).toBe("有声望的");
+  });
+
+  it("recordVocabEncounters 同一单词同一句不重复计数", async () => {
+    const sentence = "The update introduced a deterministic fallback.";
+
+    await recordVocabEncounters(
+      db,
+      [{ word: "deterministic", definition: "确定性的" }],
+      sentence,
+      "https://example.com/a"
+    );
+    await recordVocabEncounters(
+      db,
+      [{ word: "deterministic", definition: "确定性的" }],
+      sentence,
+      "https://example.com/a"
+    );
+
+    const vocab = await vocabDAO.getByWord(db, "deterministic");
+    expect(vocab!.encounter_count).toBe(1);
+    const contexts = await vocabContextDAO.getByVocabId(db, vocab!.id);
+    expect(contexts).toHaveLength(1);
+  });
+
+  it("recordVocabEncounters 同一词在新句子出现会增加次数并新增出处", async () => {
+    await recordVocabEncounters(
+      db,
+      [{ word: "ephemeral", definition: "短暂的" }],
+      "The ephemeral post disappeared quickly.",
+      "https://example.com/a"
+    );
+    await recordVocabEncounters(
+      db,
+      [{ word: "ephemeral", definition: "临时的" }],
+      "The cache is ephemeral by design.",
+      "https://example.com/b"
+    );
+
+    const vocab = await vocabDAO.getByWord(db, "ephemeral");
+    expect(vocab!.encounter_count).toBe(2);
+    expect(vocab!.definition).toBe("短暂的");
+
+    const contexts = await vocabContextDAO.getByVocabId(db, vocab!.id);
+    expect(contexts).toHaveLength(2);
+    expect(contexts.some((ctx) => ctx.context_definition === "临时的")).toBe(true);
+  });
+
+  it("recordVocabEncounters 已掌握词再次出现不会被改回新词", async () => {
+    const vocab = await vocabDAO.add(db, {
+      word: "ubiquitous",
+      status: "mastered",
+      definition: "无处不在的",
+    });
+    await vocabDAO.markMastered(db, vocab.id);
+
+    await recordVocabEncounters(
+      db,
+      [{ word: "ubiquitous", definition: "普遍存在的" }],
+      "AI assistants are becoming ubiquitous.",
+      "https://example.com/a"
+    );
+
+    const updated = await vocabDAO.getByWord(db, "ubiquitous");
+    expect(updated!.status).toBe("mastered");
+    expect(updated!.mastered_at).toBeDefined();
+  });
+
+  it("recordVocabEncounters LLM 语境释义会更新出处但不覆盖词条释义", async () => {
+    const sentence = "The fallback keeps the system deterministic.";
+
+    await recordVocabEncounters(
+      db,
+      [{ word: "fallback", definition: "后备方案" }],
+      sentence,
+      "https://example.com/a"
+    );
+    await recordVocabEncounters(
+      db,
+      [{ word: "fallback", definition: "主路径失败时启用的后备机制" }],
+      sentence,
+      "https://example.com/a"
+    );
+
+    const vocab = await vocabDAO.getByWord(db, "fallback");
+    expect(vocab!.definition).toBe("后备方案");
+    expect(vocab!.encounter_count).toBe(1);
+
+    const contexts = await vocabContextDAO.getByVocabId(db, vocab!.id);
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0].context_definition).toBe("主路径失败时启用的后备机制");
+  });
+
   it("完整的生词采集流程：添加生词 → 记录语境 → 标记掌握", async () => {
     // 1. 遇到生词
     const vocab = await vocabDAO.add(db, {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { LearningRecord, VocabRecord } from "../../shared/types.ts";
-import { learningRecordDAO, vocabDAO } from "../../shared/db.ts";
+import { learningRecordDAO, vocabContextDAO, vocabDAO } from "../../shared/db.ts";
 import { EXAMPLE_REVIEW } from "../exampleData.ts";
 
 export interface ReviewData {
@@ -40,8 +40,11 @@ export function useReviewData(db: IDBDatabase | null, isExample?: boolean): Revi
       weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
       const weekStartMs = weekStart.getTime();
 
-      const allRecords = await learningRecordDAO.getAll(db!);
-      const allVocab = await vocabDAO.getAll(db!);
+      const [allRecords, allVocab, allContexts] = await Promise.all([
+        learningRecordDAO.getAll(db!),
+        vocabDAO.getAll(db!),
+        vocabContextDAO.getAll(db!),
+      ]);
 
       // This week's records
       const weekRecords = allRecords.filter((r) => r.created_at >= weekStartMs);
@@ -62,13 +65,13 @@ export function useReviewData(db: IDBDatabase | null, isExample?: boolean): Revi
               ? allRecords[Math.floor(Math.random() * allRecords.length)]
               : null;
 
-      // Collect vocab from today's records
+      // Collect vocab from today's real encounter contexts
+      const vocabIdToWord = new Map(allVocab.map((v) => [v.id, v.word.toLowerCase()]));
       const todayWordSet = new Map<string, number>();
-      for (const r of todayRecords) {
-        for (const w of r.new_words) {
-          const key = w.word.toLowerCase();
-          todayWordSet.set(key, (todayWordSet.get(key) ?? 0) + 1);
-        }
+      for (const ctx of allContexts.filter((c) => c.created_at >= todayMs)) {
+        const key = vocabIdToWord.get(ctx.vocab_id);
+        if (!key) continue;
+        todayWordSet.set(key, (todayWordSet.get(key) ?? 0) + 1);
       }
 
       // Match with vocab records for status info

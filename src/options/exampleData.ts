@@ -153,6 +153,8 @@ export const EXAMPLE_DASHBOARD: DashboardData = {
   masteredWords: 12,
   todayCount: 8,
   recentSentences: exampleSentences.slice(0, 3),
+  recentPending: [],
+  pendingCount: 0,
   loading: false,
 };
 

@@ -105,7 +105,16 @@ export type Message =
   | { type: "pauseTab"; tabId: number }
   | { type: "resumeTab"; tabId: number }
   | { type: "getTabState"; tabId: number; hostname: string }
-  | { type: "saveSentence"; text: string; source_url: string; source_hostname: string; manual: boolean; new_words: string[] }
+  | {
+      type: "saveSentence";
+      text: string;
+      source_url: string;
+      source_hostname: string;
+      manual: boolean;
+      new_words: string[];
+      new_word_details?: { word: string; definition: string }[];
+    }
+  | { type: "markWordMastered"; word: string }
   | { type: "analyzeSentences"; sentenceIds: string[] };
 
 export type BackgroundMessage =
@@ -290,6 +299,7 @@ export interface PendingSentenceRecord {
   source_hostname: string;
   manual: boolean;
   new_words: string[]; // 只存词，不存释义（释义后续由 LLM 给）
+  new_word_details?: { word: string; definition: string }[];
   analyzed: boolean;
   created_at: number;
   updated_at: number;

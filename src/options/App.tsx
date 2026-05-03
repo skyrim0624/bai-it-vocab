@@ -6,15 +6,16 @@ import { WordTooltip } from "./components/WordTooltip.tsx";
 import { Dashboard } from "./tabs/Dashboard.tsx";
 import { DailyReview } from "./tabs/DailyReview.tsx";
 import { Sentences } from "./tabs/Sentences.tsx";
+import { VocabBook } from "./tabs/VocabBook.tsx";
 import { Settings } from "./tabs/Settings.tsx";
 import { useDB } from "./hooks/useDB.ts";
 import { useConfig } from "./hooks/useConfig.ts";
 import { useOnboardingState } from "./hooks/useOnboardingState.ts";
 import { MasteredWordsContext, useMasteredWordsProvider } from "./hooks/useMasteredWords.ts";
 
-export type TabKey = "dashboard" | "review" | "sentences" | "settings";
+export type TabKey = "dashboard" | "review" | "sentences" | "vocab" | "settings";
 
-const TABS: TabKey[] = ["dashboard", "review", "sentences", "settings"];
+const TABS: TabKey[] = ["dashboard", "review", "sentences", "vocab", "settings"];
 
 function getTabFromHash(): TabKey {
   const hash = window.location.hash.slice(1);
@@ -66,7 +67,7 @@ export function App() {
       return null;
     }
 
-    // review / sentences — just needs any data (pending or analyzed)
+    // review / sentences / vocab — just needs any data (pending or analyzed)
     if (!onboarding.hasData) {
       return onboarding.hasApi ? "browse-with-api" : "browse";
     }
@@ -106,6 +107,9 @@ export function App() {
             </div>
             <div className={`tab-panel ${activeTab === "sentences" ? "active" : ""}`}>
               {activeTab === "sentences" && <Sentences key={tabKey} db={db} isExample={sentencesIsExample} />}
+            </div>
+            <div className={`tab-panel ${activeTab === "vocab" ? "active" : ""}`}>
+              {activeTab === "vocab" && <VocabBook key={tabKey} db={db} />}
             </div>
             <div className={`tab-panel ${activeTab === "settings" ? "active" : ""}`}>
               {activeTab === "settings" && (

@@ -13,7 +13,8 @@ import type { Message, BaitConfig, ChunkResult, PatternKey } from "../shared/typ
 import { DEFAULT_CONFIG, resolveLLMConfig, migrateLLMConfig } from "../shared/types.ts";
 import { getCachedBatch, setCacheBatch } from "../shared/cache.ts";
 import { chunkSentences, analyzeSentenceFull } from "../shared/llm-adapter.ts";
-import { openDB as openDataDB, pendingSentenceDAO, learningRecordDAO } from "../shared/db.ts";
+import { openDB as openDataDB, pendingSentenceDAO, learningRecordDAO, vocabDAO } from "../shared/db.ts";
+import { recordVocabEncounters } from "../shared/vocab-recording.ts";
 
 // ========== 配置管理 ==========
 
@@ -244,6 +245,13 @@ async function processAnalysisBatch(sentenceIds: string[]): Promise<void> {
         llm_provider: config.llm.activeProvider,
       });
 
+      await recordVocabEncounters(
+        db,
+        result.new_words,
+        pending.text,
+        pending.source_url
+      );
+
       await pendingSentenceDAO.markAnalyzed(db, id);
 
       chrome.runtime.sendMessage({
@@ -377,17 +385,45 @@ async function handleMessage(
     case "saveSentence": {
       try {
         const db = await getDB();
+        const wordDetails =
+          message.new_word_details ??
+          message.new_words.map((word) => ({ word, definition: "" }));
         const record = await pendingSentenceDAO.add(db, {
           text: message.text,
           source_url: message.source_url,
           source_hostname: message.source_hostname,
           manual: message.manual,
           new_words: message.new_words,
+          new_word_details: wordDetails,
         });
+        await recordVocabEncounters(
+          db,
+          wordDetails,
+          message.text,
+          message.source_url
+        );
         return { ok: true, saved: record !== null };
       } catch {
         return { ok: true, saved: false };
       }
+    }
+
+    case "markWordMastered": {
+      const db = await getDB();
+      const word = message.word.trim().toLowerCase();
+      if (!word) return { ok: false };
+
+      const existing = await vocabDAO.getByWord(db, word);
+      if (existing) {
+        await vocabDAO.markMastered(db, existing.id);
+      } else {
+        const created = await vocabDAO.add(db, {
+          word,
+          status: "mastered",
+        });
+        await vocabDAO.markMastered(db, created.id);
+      }
+      return { ok: true };
     }
 
     case "analyzeSentences": {

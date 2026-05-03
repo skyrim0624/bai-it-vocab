@@ -341,8 +341,24 @@ export const vocabContextDAO = {
     return getAllByIndex<VocabContextRecord>(db, STORES.vocab_contexts, "by_vocab_id", vocabId);
   },
 
+  async getById(db: IDBDatabase, id: string): Promise<VocabContextRecord | undefined> {
+    return getById<VocabContextRecord>(db, STORES.vocab_contexts, id);
+  },
+
   async getAll(db: IDBDatabase): Promise<VocabContextRecord[]> {
     return getAll<VocabContextRecord>(db, STORES.vocab_contexts);
+  },
+
+  async update(
+    db: IDBDatabase,
+    id: string,
+    changes: Partial<VocabContextRecord>
+  ): Promise<VocabContextRecord | undefined> {
+    const existing = await this.getById(db, id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...changes, id, updated_at: Date.now(), is_dirty: true };
+    await put(db, STORES.vocab_contexts, updated);
+    return updated;
   },
 
   async delete(db: IDBDatabase, id: string): Promise<void> {

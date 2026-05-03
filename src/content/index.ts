@@ -85,6 +85,7 @@ async function onTooltipClick(e: MouseEvent): Promise<void> {
   // Save to storage
   try {
     await chrome.storage.local.set({ knownWords: [...knownWords] });
+    await sendMessage({ type: "markWordMastered", word });
   } catch { /* silent */ }
 
   // Remove all annotations for this word on current page
@@ -504,7 +505,12 @@ function restoreProcessedElements(): void {
 
 // ========== 数据采集 ==========
 
-function saveSentenceQuiet(text: string, manual: boolean, newWords: string[]): void {
+function saveSentenceQuiet(
+  text: string,
+  manual: boolean,
+  newWords: string[],
+  newWordDetails: { word: string; definition: string }[] = []
+): void {
   sendMessage({
     type: "saveSentence",
     text,
@@ -512,6 +518,7 @@ function saveSentenceQuiet(text: string, manual: boolean, newWords: string[]): v
     source_hostname: window.location.hostname,
     manual,
     new_words: newWords,
+    new_word_details: newWordDetails,
   }).catch(() => {});
 }
 
@@ -731,7 +738,7 @@ function processElementWithLinks(el: Element, text: string): void {
 
   // 9. 采集数据
   const sentenceNewWords = vocabAnnotations.map(a => a.word);
-  saveSentenceQuiet(text, false, sentenceNewWords);
+  saveSentenceQuiet(text, false, sentenceNewWords, toNewWordsFormat(vocabAnnotations));
 }
 
 /**
@@ -963,6 +970,7 @@ function processTextElement(el: Element, text: string): void {
 
   // 收集生词列表（只要词）
   const sentenceNewWords = vocabAnnotations.map(a => a.word);
+  const sentenceNewWordDetails = toNewWordsFormat(vocabAnnotations);
 
   if (hasAnyChunks) {
     // 有本地拆分结果 → 渲染（带生词标注）
@@ -971,7 +979,7 @@ function processTextElement(el: Element, text: string): void {
       original: text,
       chunked: chunkedString,
       isSimple: false,
-      newWords: toNewWordsFormat(vocabAnnotations),
+      newWords: sentenceNewWordDetails,
     };
     const chunkedEl = createChunkedElement(chunkResult, config.chunkIntensity);
     if (chunkedEl) {
@@ -984,7 +992,7 @@ function processTextElement(el: Element, text: string): void {
   }
 
   // fire-and-forget 存句到 pending_sentences
-  saveSentenceQuiet(text, false, sentenceNewWords);
+  saveSentenceQuiet(text, false, sentenceNewWords, sentenceNewWordDetails);
 }
 
 function isEnlearnElement(el: Element): boolean {
@@ -1052,7 +1060,7 @@ function addManualTrigger(el: Element, text: string): void {
 
           // 手动触发 → 标记 manual: true
           const newWordsList = result.newWords?.map(w => w.word) ?? [];
-          saveSentenceQuiet(text, true, newWordsList);
+          saveSentenceQuiet(text, true, newWordsList, result.newWords ?? []);
         }
       } else {
         // 拆不动 → 移除按钮
