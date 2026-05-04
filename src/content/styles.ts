@@ -73,48 +73,55 @@ export const ENLEARN_STYLES = `
 .enlearn-tooltip {
   position: fixed;
   display: none;
-  background: rgba(255, 255, 255, 0.96);
-  color: #111827;
-  padding: 12px;
-  border: 1px solid rgba(15, 23, 42, 0.10);
+  background: rgba(255, 255, 255, 0.98);
+  color: #0f172a;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.26);
   border-radius: 8px;
   font-size: 13px;
   line-height: 1.5;
   white-space: normal;
   z-index: 2147483647;
   pointer-events: auto;
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15, 23, 42, 0.10);
+  box-shadow:
+    0 22px 54px rgba(15, 23, 42, 0.16),
+    0 8px 18px rgba(15, 23, 42, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
   font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   display: none;
-  align-items: stretch;
-  gap: 12px;
-  max-width: min(420px, calc(100vw - 16px));
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  align-items: center;
+  gap: 10px;
+  max-width: min(460px, calc(100vw - 16px));
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
 }
 
 .enlearn-tooltip-main {
+  flex: 1 1 auto;
   min-width: 0;
-  max-width: 300px;
+  max-width: 330px;
+  padding: 1px 2px;
 }
 
 .enlearn-tooltip-head {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
   min-width: 0;
 }
 
 .enlearn-tooltip-word {
   font-weight: 700;
   color: #0f172a;
-  font-size: 15px;
-  line-height: 1.2;
+  font-size: 16px;
+  line-height: 1.15;
+  letter-spacing: 0;
 }
 
 .enlearn-tooltip-phonetic {
   color: #64748b;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
@@ -122,40 +129,20 @@ export const ENLEARN_STYLES = `
 .enlearn-tooltip-def {
   display: block;
   color: #334155;
-  font-size: 13px;
-  line-height: 1.55;
-  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.52;
+  margin-top: 7px;
+  max-width: 100%;
 }
 
-.enlearn-tooltip-source {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
+.enlearn-tooltip-def.is-loading {
   color: #64748b;
-  font-size: 11px;
-  line-height: 1.2;
-}
-
-.enlearn-tooltip-source::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
-}
-
-.enlearn-tooltip-source.is-loading::before {
-  background: #f59e0b;
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14);
-  animation: enlearn-source-pulse 0.9s ease-in-out infinite;
 }
 
 .enlearn-tooltip-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
@@ -163,17 +150,18 @@ export const ENLEARN_STYLES = `
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 36px;
-  height: 36px;
+  min-width: 38px;
+  height: 38px;
   padding: 0;
   background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #dbe3ef;
   border-radius: 8px;
-  color: #475569;
+  color: #334155;
   font-size: 12px;
   font-weight: 650;
   cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
   font-family: inherit;
   line-height: 1;
   flex-shrink: 0;
@@ -190,19 +178,25 @@ export const ENLEARN_STYLES = `
 }
 
 .enlearn-tooltip-btn:hover {
-  background: #ecfeff;
-  border-color: #67e8f9;
-  color: #0f766e;
+  background: #eef6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
   transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.enlearn-tooltip-btn:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .enlearn-tooltip-add {
   width: auto;
-  min-width: 42px;
-  padding: 0 12px;
+  min-width: 54px;
+  padding: 0 14px;
   background: #0f172a;
   border-color: #0f172a;
   color: #ffffff;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
 }
 
 .enlearn-tooltip-add:hover,
@@ -210,11 +204,6 @@ export const ENLEARN_STYLES = `
   background: #16a34a;
   border-color: #16a34a;
   color: #ffffff;
-}
-
-@keyframes enlearn-source-pulse {
-  0%, 100% { opacity: 0.55; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1.08); }
 }
 
 /* 手动触发按钮 — inline 显示，不会被 overflow:hidden 裁剪 */
@@ -324,23 +313,29 @@ body.enlearn-paused .enlearn-original-hidden { display: block !important; }
   }
 
   .enlearn-tooltip {
-    background: rgba(15, 23, 42, 0.96);
+    background: rgba(15, 23, 42, 0.97);
     color: #e2e8f0;
-    border-color: rgba(148, 163, 184, 0.20);
-    box-shadow: 0 18px 44px rgba(0,0,0,0.38), 0 4px 12px rgba(0,0,0,0.28);
+    border-color: rgba(148, 163, 184, 0.22);
+    box-shadow:
+      0 22px 54px rgba(0, 0, 0, 0.42),
+      0 8px 18px rgba(0, 0, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
   .enlearn-tooltip-word {
     color: #f8fafc;
   }
 
-  .enlearn-tooltip-phonetic,
-  .enlearn-tooltip-source {
+  .enlearn-tooltip-phonetic {
     color: #94a3b8;
   }
 
   .enlearn-tooltip-def {
     color: #cbd5e1;
+  }
+
+  .enlearn-tooltip-def.is-loading {
+    color: #94a3b8;
   }
 
   .enlearn-tooltip-btn {
@@ -350,9 +345,10 @@ body.enlearn-paused .enlearn-original-hidden { display: block !important; }
   }
 
   .enlearn-tooltip-btn:hover {
-    background: rgba(20, 184, 166, 0.16);
-    border-color: rgba(45, 212, 191, 0.52);
-    color: #5eead4;
+    background: rgba(59, 130, 246, 0.18);
+    border-color: rgba(96, 165, 250, 0.58);
+    color: #bfdbfe;
+    box-shadow: 0 8px 18px rgba(59, 130, 246, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
   .enlearn-tooltip-add {
@@ -425,16 +421,19 @@ body.enlearn-paused .enlearn-original-hidden { display: block !important; }
 
 .enlearn-tooltip {
   border-radius: 8px;
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.22), 0 4px 12px rgba(15, 23, 42, 0.12);
+  box-shadow:
+    0 22px 54px rgba(15, 23, 42, 0.16),
+    0 8px 18px rgba(15, 23, 42, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
 .enlearn-tooltip-btn {
-  min-width: 40px;
-  height: 40px;
+  min-width: 38px;
+  height: 38px;
 }
 
 .enlearn-tooltip-add {
-  min-width: 52px;
+  min-width: 54px;
 }
 
 .enlearn-trigger {

@@ -19,7 +19,6 @@ import type {
   ChunkResult,
   BackgroundMessage,
   DictionaryLookupResult,
-  DictionaryLookupSource,
 } from "../shared/types.ts";
 import { DEFAULT_CONFIG } from "../shared/types.ts";
 import { speakWordNaturally } from "../shared/speech.ts";
@@ -51,8 +50,6 @@ let currentTooltipData: {
   word: string;
   definition: string;
   phonetic?: string;
-  source: DictionaryLookupSource;
-  provider?: string;
   loading: boolean;
   added: boolean;
   sentence: string;
@@ -66,7 +63,7 @@ function setupTooltip(): void {
   tooltipEl.className = "enlearn-tooltip";
   document.body.appendChild(tooltipEl);
 
-  // Keep tooltip visible when hovering the tooltip itself
+  // NOTE: 鼠标移到浮窗上时保留浮窗，避免用户还没点按钮就消失。
   tooltipEl.addEventListener("mouseenter", () => {
     if (tooltipHideTimer) { clearTimeout(tooltipHideTimer); tooltipHideTimer = null; }
   });
@@ -128,9 +125,9 @@ async function onTooltipClick(e: MouseEvent): Promise<void> {
   try {
     await chrome.storage.local.set({ knownWords: [...knownWords] });
     await sendMessage({ type: "markWordMastered", word });
-  } catch { /* silent */ }
+  } catch { /* 静默失败 */ }
 
-  // Remove all annotations for this word on current page
+  // NOTE: 当前页同步移除这个词的全部标注，避免用户刷新前继续误点。
   document.querySelectorAll(`.enlearn-word`).forEach(el => {
     if ((el as HTMLElement).dataset.word?.toLowerCase() === word) {
       const text = document.createTextNode(el.textContent || "");
@@ -138,7 +135,7 @@ async function onTooltipClick(e: MouseEvent): Promise<void> {
     }
   });
 
-  // Hide tooltip
+  // 隐藏浮窗
   if (tooltipEl) tooltipEl.style.display = "none";
   currentTooltipData = null;
 }
@@ -150,7 +147,7 @@ function onWordHover(e: MouseEvent): void {
   const def = wordEl.getAttribute("data-def");
   if (!def) return;
 
-  // Cancel any pending hide
+  // 取消待执行的隐藏动作
   if (tooltipHideTimer) { clearTimeout(tooltipHideTimer); tooltipHideTimer = null; }
 
   const word = (wordEl.dataset.word || wordEl.textContent || "").toLowerCase();
@@ -161,7 +158,6 @@ function onWordHover(e: MouseEvent): void {
     sentence,
     sourceUrl: window.location.href,
     rect: wordEl.getBoundingClientRect(),
-    source: "offline",
     loading: true,
   });
   refreshTooltipDefinition(word, def);
@@ -171,8 +167,6 @@ function showWordTooltip({
   word,
   definition,
   phonetic,
-  source = definition ? "offline" : "none",
-  provider,
   loading = false,
   sentence,
   sourceUrl,
@@ -181,8 +175,6 @@ function showWordTooltip({
   word: string;
   definition: string;
   phonetic?: string;
-  source?: DictionaryLookupSource;
-  provider?: string;
   loading?: boolean;
   sentence: string;
   sourceUrl: string;
@@ -192,7 +184,7 @@ function showWordTooltip({
 
   if (tooltipHideTimer) { clearTimeout(tooltipHideTimer); tooltipHideTimer = null; }
 
-  currentTooltipData = { word, definition, phonetic, source, provider, loading, added: false, sentence, sourceUrl };
+  currentTooltipData = { word, definition, phonetic, loading, added: false, sentence, sourceUrl };
   renderTooltip();
   tooltipEl.style.display = "flex";
 
@@ -216,8 +208,7 @@ function showWordTooltip({
 function renderTooltip(): void {
   if (!tooltipEl || !currentTooltipData) return;
   const data = currentTooltipData;
-  const sourceText = getTooltipSourceText(data.source, data.loading, data.provider);
-  const definition = data.definition || "未找到释义，可先加入生词本后用语境复习。";
+  const definition = data.definition || (data.loading ? "正在查询释义..." : "未找到释义，可先加入生词本后用语境复习。");
   const addLabel = data.added ? "已加入" : "加入";
 
   tooltipEl.innerHTML = `
@@ -226,8 +217,7 @@ function renderTooltip(): void {
         <div class="enlearn-tooltip-word">${escapeHtml(data.word)}</div>
         ${data.phonetic ? `<div class="enlearn-tooltip-phonetic">${escapeHtml(data.phonetic)}</div>` : ""}
       </div>
-      <div class="enlearn-tooltip-def">${escapeHtml(definition)}</div>
-      <div class="enlearn-tooltip-source ${data.loading ? "is-loading" : ""}">${escapeHtml(sourceText)}</div>
+      <div class="enlearn-tooltip-def ${data.loading && !data.definition ? "is-loading" : ""}">${escapeHtml(definition)}</div>
     </div>
     <div class="enlearn-tooltip-actions">
       <button class="enlearn-tooltip-btn" data-action="speak" title="听发音" aria-label="听发音">${speakerIcon()}</button>
@@ -235,18 +225,6 @@ function renderTooltip(): void {
       <button class="enlearn-tooltip-btn" data-action="master" title="标记为已掌握" aria-label="标记为已掌握">${checkIcon()}</button>
     </div>
   `;
-}
-
-function getTooltipSourceText(
-  source: DictionaryLookupSource,
-  loading: boolean,
-  provider?: string
-): string {
-  if (loading) return "在线词库查询中";
-  if (source === "online") return provider ? `在线词库 · ${provider}` : "在线词库";
-  if (source === "online-cache") return "在线词库缓存";
-  if (source === "offline") return "离线词库";
-  return "暂无词库结果";
 }
 
 function speakerIcon(): string {
@@ -282,14 +260,11 @@ async function refreshTooltipDefinition(word: string, offlineDefinition: string)
 
     currentTooltipData.definition = result.definition || offlineDefinition;
     currentTooltipData.phonetic = result.phonetic;
-    currentTooltipData.source = result.source;
-    currentTooltipData.provider = result.provider;
     currentTooltipData.loading = false;
     renderTooltip();
   } catch {
     if (!currentTooltipData || currentTooltipData.word !== word) return;
     currentTooltipData.loading = false;
-    currentTooltipData.source = offlineDefinition ? "offline" : "none";
     renderTooltip();
   }
 }
@@ -400,7 +375,6 @@ function onDocumentWordClick(e: MouseEvent): void {
     sentence: getSentenceForElement(target, result.word),
     sourceUrl: window.location.href,
     rect,
-    source: definition ? "offline" : "none",
     loading: true,
   });
   refreshTooltipDefinition(result.word, definition);
