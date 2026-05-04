@@ -28,6 +28,9 @@ export function NavBar({ activeTab, onTabChange }: NavBarProps) {
             key={tab}
             className={`nav-item ${activeTab === tab ? "active" : ""}`}
             onClick={() => onTabChange(tab)}
+            aria-current={activeTab === tab ? "page" : undefined}
+            aria-pressed={activeTab === tab}
+            type="button"
           >
             {TAB_LABELS[tab]}
           </button>

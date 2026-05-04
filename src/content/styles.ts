@@ -392,4 +392,77 @@ body.enlearn-paused .enlearn-original-hidden { display: block !important; }
   }
 
 }
+
+/* UI/UX Pro Max：网页内阅读层最终打磨 */
+.enlearn-chunked {
+  line-height: 1.58;
+  border-radius: 6px;
+}
+
+.enlearn-chunked:hover {
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.enlearn-line {
+  min-height: 1.45em;
+}
+
+.enlearn-separator {
+  color: rgba(14, 165, 233, 0.40);
+}
+
+.enlearn-word {
+  border-bottom: 1.5px solid rgba(14, 165, 233, 0.42);
+  border-radius: 2px;
+  text-decoration: none;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.enlearn-word:hover {
+  background: rgba(14, 165, 233, 0.10);
+  border-bottom-color: #0284c7;
+}
+
+.enlearn-tooltip {
+  border-radius: 8px;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.22), 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+.enlearn-tooltip-btn {
+  min-width: 40px;
+  height: 40px;
+}
+
+.enlearn-tooltip-add {
+  min-width: 52px;
+}
+
+.enlearn-trigger {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+}
+
+.enlearn-trigger svg {
+  width: 16px;
+  height: 16px;
+}
+
+.enlearn-trigger:focus-visible,
+.enlearn-tooltip-btn:focus-visible {
+  outline: 2px solid rgba(14, 165, 233, 0.70);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enlearn-tooltip,
+  .enlearn-tooltip-btn,
+  .enlearn-word,
+  .enlearn-trigger,
+  .enlearn-loading::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 `;

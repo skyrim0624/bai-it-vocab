@@ -70,7 +70,7 @@ function SentenceExpanded({ record, onClick }: { record: LearningRecord; onClick
       <div className="sent-expanded-original">{record.sentence}</div>
 
       {/* Layer 2: 分块 */}
-      <div className="sent-section-label" style={{ marginTop: 0 }}>分块</div>
+      <div className="sent-section-label sent-section-label-first">分块</div>
       <ChunkLines chunked={record.chunked} newWords={record.new_words} />
 
       {/* Layer 3: 为什么难读 */}
@@ -130,7 +130,7 @@ function SentencePending({
     <GlassCard className="sent-item sent-pending" onClick={onClick}>
       <div className="sent-item-top">
         {pending.manual && <span className="sent-badge sent-badge-manual">手动</span>}
-        {analyzing && <span className="sent-badge sent-badge-analyzing">分析中...</span>}
+        {analyzing && <span className="sent-badge sent-badge-analyzing">分析中</span>}
         {error && <span className="sent-badge sent-badge-error">分析失败</span>}
         <span className="sentence-source">
           {pending.source_hostname} · {formatTimeAgo(pending.created_at)}
@@ -161,7 +161,7 @@ function SentencePendingExpanded({
     <GlassCard className="sent-expanded sent-pending" onClick={onClick}>
       <div className="sent-item-top">
         {pending.manual && <span className="sent-badge sent-badge-manual">手动</span>}
-        {analyzing && <span className="sent-badge sent-badge-analyzing">分析中...</span>}
+        {analyzing && <span className="sent-badge sent-badge-analyzing">分析中</span>}
         {error && <span className="sent-badge sent-badge-error">分析失败</span>}
         <span className="sentence-source">
           {pending.source_hostname} · {formatTimeAgo(pending.created_at)}
@@ -186,7 +186,7 @@ function SentencePendingExpanded({
       )}
 
       {!analyzing && !error && (
-        <div className="sent-pending-hint">等待分析...</div>
+        <div className="sent-pending-hint">等待分析</div>
       )}
     </GlassCard>
   );
@@ -283,16 +283,18 @@ export function Sentences({ db, isExample }: SentencesProps) {
             className="sent-page-btn"
             disabled={!hasPrevPage}
             onClick={() => setPage(p => p - 1)}
+            type="button"
           >
-            ← 上一页
+            上一页
           </button>
           <span className="sent-page-info">{page} / {totalPages}</span>
           <button
             className="sent-page-btn"
             disabled={!hasNextPage}
             onClick={() => setPage(p => p + 1)}
+            type="button"
           >
-            下一页 →
+            下一页
           </button>
         </div>
       )}

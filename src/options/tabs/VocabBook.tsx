@@ -211,7 +211,7 @@ export function VocabBook({ db }: VocabBookProps) {
     <>
       <div className="vocab-book-head rv">
         <div>
-          <div className="section-head" style={{ marginBottom: 4 }}>生词本</div>
+          <div className="section-head vocab-book-title">生词本</div>
           <div className="vocab-book-sub">
             {entries.length} 个词 · {entries.reduce((sum, entry) => sum + entry.contexts.length, 0)} 条语境
           </div>

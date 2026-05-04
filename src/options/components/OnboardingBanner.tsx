@@ -19,7 +19,7 @@ export function OnboardingBanner({ variant, onGoToSettings }: OnboardingBannerPr
       <div className="banner-text">{TEXTS[variant]}</div>
       {variant === "api" && (
         <button className="banner-link" onClick={onGoToSettings} type="button">
-          去设置 →
+          去设置
         </button>
       )}
     </div>

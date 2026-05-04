@@ -114,6 +114,7 @@ export function WordTooltip() {
           <button
             className={`vt-mark${isMastered ? " is-done" : ""}`}
             onClick={handleMark}
+            aria-pressed={isMastered}
             type="button"
           >
             {isMastered ? (

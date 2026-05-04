@@ -108,7 +108,7 @@ export function Settings({ config, configLoading: loading, updateLLM }: Settings
             </button>
           ))}
         </div>
-        <div className="settings-row" style={{ borderBottom: "none", paddingTop: 8 }}>
+        <div className="settings-row settings-key-setting">
           <div>
             <div className="settings-label">{providerInfo.label} API Key</div>
             <div className="settings-desc">你的 Key 只存在本地，不会上传到任何地方</div>
@@ -120,7 +120,7 @@ export function Settings({ config, configLoading: loading, updateLLM }: Settings
               value={currentProviderConfig.apiKey}
               onChange={(e) => handleKeyChange(e.target.value)}
               placeholder="填入你的 API Key"
-              style={{ width: 240 }}
+              aria-label={`${providerInfo.label} API Key`}
             />
             <button
               className="settings-verify-btn"
@@ -128,16 +128,16 @@ export function Settings({ config, configLoading: loading, updateLLM }: Settings
               disabled={status === "checking"}
               type="button"
             >
-              {status === "checking" ? "验证中..." : "测试连接"}
+              {status === "checking" ? "验证中" : "测试连接"}
             </button>
           </div>
         </div>
         {(status === "ok" || status === "error") && (
           <div className={`settings-verify-result ${status}`}>
-            {status === "ok" ? "✓ 连接成功" : `✗ ${verifyError}`}
+            {status === "ok" ? "连接成功" : verifyError}
           </div>
         )}
-        <div className="settings-row" style={{ paddingTop: 4 }}>
+        <div className="settings-row settings-model-setting">
           <div>
             <div className="settings-label">模型</div>
           </div>
@@ -145,7 +145,7 @@ export function Settings({ config, configLoading: loading, updateLLM }: Settings
             className="settings-select"
             value={currentProviderConfig.model}
             onChange={(e) => handleModelChange(e.target.value)}
-            style={{ minWidth: 180 }}
+            aria-label="选择模型"
           >
             {providerInfo.models.map((m) => (
               <option key={m} value={m}>{m}</option>

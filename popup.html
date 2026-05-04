@@ -21,7 +21,7 @@
       overflow: hidden;
     }
 
-    /* ===== Header ===== */
+    /* ===== 头部 ===== */
     .header {
       padding: 16px 16px;
       display: flex;
@@ -58,7 +58,7 @@
       font-weight: 500;
     }
 
-    /* ===== Big Action Button ===== */
+    /* ===== 主操作按钮 ===== */
     .action-area {
       padding: 14px 16px 10px;
     }
@@ -102,7 +102,7 @@
       color: rgba(255,255,255,0.7);
     }
 
-    /* ===== Site toggle row ===== */
+    /* ===== 站点开关行 ===== */
     .site-row {
       display: flex;
       align-items: center;
@@ -121,7 +121,7 @@
       font-weight: 500;
     }
 
-    /* Toggle switch */
+    /* 开关 */
     .toggle-sm {
       position: relative;
       width: 40px;
@@ -161,7 +161,7 @@
       transform: translateX(18px);
     }
 
-    /* ===== Content ===== */
+    /* ===== 内容 ===== */
     .content {
       padding: 0 16px 16px;
       transition: opacity 0.3s ease;
@@ -186,7 +186,7 @@
       margin-bottom: 16px;
     }
 
-    /* ===== Slider ===== */
+    /* ===== 滑杆 ===== */
     .slider-row { margin-bottom: 20px; }
 
     .slider-labels {
@@ -259,7 +259,7 @@
       text-align: center;
     }
 
-    /* ===== Segmented Control ===== */
+    /* ===== 分段控件 ===== */
     .seg-control {
       display: flex;
       background: rgba(255,255,255,0.04);
@@ -307,7 +307,7 @@
       color: rgba(255,255,255,0.5);
     }
 
-    /* ===== Mode description ===== */
+    /* ===== 模式说明 ===== */
     .mode-desc {
       font-size: 11px;
       color: rgba(255,255,255,0.2);
@@ -315,7 +315,7 @@
       transition: all 0.2s ease;
     }
 
-    /* ===== Display Preview ===== */
+    /* ===== 显示预览 ===== */
     .display-preview {
       border: 1px solid rgba(255,255,255,0.06);
       border-radius: 10px;
@@ -343,12 +343,12 @@
     .display-preview.mode-light .line-sub { color: rgba(255,255,255,0.2); }
     .display-preview.mode-light .dot { color: rgba(255,255,255,0.15); margin: 0 3px; }
 
-    /* ===== Display label ===== */
+    /* ===== 显示标签 ===== */
     .display-label {
       margin-bottom: 8px;
     }
 
-    /* ===== Footer ===== */
+    /* ===== 底部 ===== */
     .footer {
       padding: 10px 16px;
       border-top: 1px solid rgba(255,255,255,0.06);
@@ -363,10 +363,298 @@
     }
 
     .footer a:hover { color: #fca5a5; }
+
+    /* ===== UI/UX Pro Max：紧凑学习弹窗 ===== */
+    :root {
+      --popup-bg: #0b1020;
+      --popup-surface: #111827;
+      --popup-surface-2: #162033;
+      --popup-border: rgba(148, 163, 184, 0.18);
+      --popup-text: #e5e7eb;
+      --popup-muted: #94a3b8;
+      --popup-soft: #64748b;
+      --popup-primary: #38bdf8;
+      --popup-success: #22c55e;
+      --popup-danger: #ef4444;
+      --popup-ring: rgba(56, 189, 248, 0.72);
+    }
+
+    body {
+      width: 360px;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--popup-text);
+      background: var(--popup-bg);
+      border-radius: 0;
+    }
+
+    button,
+    a,
+    .slider-track-container,
+    .toggle-sm {
+      touch-action: manipulation;
+    }
+
+    button:focus-visible,
+    a:focus-visible,
+    .slider-track-container:focus-visible,
+    .toggle-sm input:focus-visible + .t-track {
+      outline: 2px solid var(--popup-ring);
+      outline-offset: 2px;
+    }
+
+    .header {
+      padding: 16px 18px 14px;
+      background: rgba(17, 24, 39, 0.78);
+      border-bottom-color: var(--popup-border);
+    }
+
+    .logo .zh,
+    .logo .en {
+      color: #f8fafc;
+    }
+
+    .site-name {
+      max-width: 190px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--popup-muted);
+      background: rgba(148, 163, 184, 0.10);
+      border: 1px solid var(--popup-border);
+      border-radius: 999px;
+      padding: 4px 9px;
+    }
+
+    .action-area {
+      padding: 16px 18px 12px;
+    }
+
+    .action-btn {
+      height: 48px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-weight: 750;
+      letter-spacing: 0;
+      transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .action-btn:disabled {
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .action-btn.is-on {
+      background: var(--popup-success);
+      color: #052e16;
+      box-shadow: none;
+    }
+
+    .action-btn.is-on:hover {
+      background: #4ade80;
+      box-shadow: none;
+    }
+
+    .action-btn.is-off {
+      background: rgba(15, 23, 42, 0.78);
+      color: #cbd5e1;
+      border-color: var(--popup-border);
+    }
+
+    .action-btn.is-off:hover {
+      background: rgba(56, 189, 248, 0.12);
+      color: #e0f2fe;
+      border-color: rgba(56, 189, 248, 0.42);
+    }
+
+    .site-row {
+      padding: 12px 18px 14px;
+      border-bottom-color: var(--popup-border);
+    }
+
+    .site-row-label {
+      color: var(--popup-muted);
+      line-height: 1.45;
+    }
+
+    .site-row-label .domain {
+      display: inline-block;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: bottom;
+      color: #e2e8f0;
+    }
+
+    .toggle-sm {
+      width: 48px;
+      height: 28px;
+    }
+
+    .toggle-sm .t-track {
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.16);
+      border: 1px solid var(--popup-border);
+    }
+
+    .toggle-sm input:checked + .t-track {
+      background: rgba(34, 197, 94, 0.24);
+      border-color: rgba(34, 197, 94, 0.44);
+    }
+
+    .toggle-sm .t-thumb {
+      width: 22px;
+      height: 22px;
+      background: #f8fafc;
+      transform: translateY(1px);
+    }
+
+    .toggle-sm input:checked ~ .t-thumb {
+      transform: translate(20px, 1px);
+      background: #86efac;
+    }
+
+    .content {
+      padding: 0 18px 18px;
+    }
+
+    .content.disabled {
+      opacity: 0.46;
+    }
+
+    .section {
+      padding-top: 18px;
+    }
+
+    .section-title,
+    .slider-label.center {
+      font-family: inherit;
+      color: #e2e8f0;
+      letter-spacing: 0;
+      text-transform: none;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .section-title {
+      margin-bottom: 18px;
+    }
+
+    .slider-label,
+    .slider-hint,
+    .mode-desc {
+      color: var(--popup-muted);
+    }
+
+    .slider-track-container {
+      min-height: 44px;
+      border-radius: 8px;
+    }
+
+    .slider-track {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.16);
+    }
+
+    .slider-fill {
+      background: linear-gradient(90deg, var(--popup-primary), var(--popup-success));
+    }
+
+    .slider-thumb {
+      width: 22px;
+      height: 22px;
+      border-color: var(--popup-primary);
+      box-shadow: 0 0 0 5px rgba(56, 189, 248, 0.14);
+    }
+
+    .seg-control {
+      border-radius: 8px;
+      border-color: var(--popup-border);
+      background: rgba(15, 23, 42, 0.76);
+      padding: 4px;
+    }
+
+    .seg-pill {
+      top: 4px;
+      left: 4px;
+      height: calc(100% - 8px);
+      width: calc((100% - 8px) / 3);
+      border-radius: 6px;
+      background: rgba(56, 189, 248, 0.16);
+      border: 1px solid rgba(56, 189, 248, 0.24);
+    }
+
+    .seg-btn {
+      min-height: 36px;
+      font-family: inherit;
+      color: var(--popup-muted);
+      border-radius: 6px;
+    }
+
+    .seg-btn.active {
+      color: #e0f2fe;
+    }
+
+    .display-preview {
+      height: 112px;
+      border-radius: 8px;
+      border-color: var(--popup-border);
+      background: rgba(17, 24, 39, 0.78);
+      color: #cbd5e1;
+      overflow: hidden;
+    }
+
+    .display-preview.mode-structure .line-main,
+    .display-preview.mode-light .line-main {
+      color: #f8fafc;
+    }
+
+    .display-preview.mode-structure .line-sub1,
+    .display-preview.mode-lines .line {
+      color: #94a3b8;
+    }
+
+    .display-preview.mode-structure .line-sub2,
+    .display-preview.mode-light .line-sub {
+      color: #64748b;
+    }
+
+    .footer {
+      padding: 12px 18px 14px;
+      border-top-color: var(--popup-border);
+      background: rgba(17, 24, 39, 0.56);
+    }
+
+    .footer a {
+      display: inline-flex;
+      min-height: 36px;
+      align-items: center;
+      justify-content: center;
+      color: #bae6fd;
+      font-weight: 650;
+    }
+
+    .footer a:hover {
+      color: #ffffff;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
   </style>
 </head>
 <body>
-  <!-- Header -->
+  <!-- 头部 -->
   <div class="header">
     <div class="logo">
       <span class="zh">掰</span><span class="en">it</span>
@@ -374,36 +662,36 @@
     <span class="site-name" id="site-name">—</span>
   </div>
 
-  <!-- Big action button -->
+  <!-- 主操作按钮 -->
   <div class="action-area">
-    <button class="action-btn is-on" id="action-btn">
+    <button class="action-btn is-on" id="action-btn" type="button" aria-live="polite">
       <span id="action-text">显示原文</span>
     </button>
   </div>
 
-  <!-- Site-level toggle -->
+  <!-- 站点级开关 -->
   <div class="site-row">
     <span class="site-row-label">总是掰 <span class="domain" id="site-domain">—</span></span>
-    <label class="toggle-sm">
+    <label class="toggle-sm" aria-label="切换当前网站启用状态">
       <input type="checkbox" id="site-toggle" checked>
       <div class="t-track"></div>
       <div class="t-thumb"></div>
     </label>
   </div>
 
-  <!-- Settings content -->
+  <!-- 设置内容 -->
   <div class="content" id="content">
     <div class="section">
       <div class="section-title">掰句设置</div>
 
-      <!-- Intensity slider -->
+      <!-- 辅助力度滑杆 -->
       <div class="slider-row">
         <div class="slider-labels">
           <span class="slider-label">少掰</span>
           <span class="slider-label center">掰多少</span>
           <span class="slider-label">多掰</span>
         </div>
-        <div class="slider-track-container no-transition" id="assist-slider">
+        <div class="slider-track-container no-transition" id="assist-slider" role="slider" tabindex="0" aria-label="辅助力度" aria-valuemin="1" aria-valuemax="5" aria-valuenow="3">
           <div class="slider-track">
             <div class="slider-fill" id="slider-fill"></div>
           </div>
@@ -412,28 +700,28 @@
         <div class="slider-hint" id="assist-hint">复杂句自动掰，简单句不打扰</div>
       </div>
 
-      <!-- Display mode: segmented control + preview -->
+      <!-- 显示模式：分段控件和预览 -->
       <div class="display-label">
         <span class="slider-label center">掰完怎么显示</span>
       </div>
 
       <div class="seg-control no-transition" id="seg-control">
         <div class="seg-pill" id="seg-pill"></div>
-        <button class="seg-btn active" data-mode="structure">详细</button>
-        <button class="seg-btn" data-mode="lines">简洁</button>
-        <button class="seg-btn" data-mode="light">轻微</button>
+        <button class="seg-btn active" data-mode="structure" type="button" aria-pressed="true">详细</button>
+        <button class="seg-btn" data-mode="lines" type="button" aria-pressed="false">简洁</button>
+        <button class="seg-btn" data-mode="light" type="button" aria-pressed="false">轻微</button>
       </div>
 
       <div class="mode-desc" id="mode-desc">掰成段，缩进显示主从关系</div>
 
-      <!-- Shared preview area -->
+      <!-- 共用预览区域 -->
       <div class="display-preview mode-structure" id="preview"></div>
     </div>
   </div>
 
-  <!-- Footer -->
+  <!-- 底部 -->
   <div class="footer">
-    <a href="#" id="link-options">更多设置 →</a>
+    <a href="#" id="link-options">更多设置</a>
   </div>
 
   <script src="popup.js"></script>

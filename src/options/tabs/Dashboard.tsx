@@ -96,7 +96,7 @@ export function Dashboard({ db, isExample, pendingCount, hasApi, onGoToReview, o
                   {p.source_hostname} · {formatTimeAgo(p.created_at)}
                 </span>
               </div>
-              <div className="sent-item-text" style={{ WebkitLineClamp: 3 }}>{p.text}</div>
+              <div className="sent-item-text sent-item-text-pending">{p.text}</div>
             </GlassCard>
           ))}
         </>
@@ -111,14 +111,14 @@ export function Dashboard({ db, isExample, pendingCount, hasApi, onGoToReview, o
             你已积累 {pendingCount} 条待分析难句。配置 API 后即可解锁句型分析和结构化复习。
           </span>
           <button className="banner-link" onClick={onGoToSettings} type="button">
-            去设置 →
+            去设置
           </button>
         </div>
       )}
 
       {/* CTA */}
       <button className="cta-btn rv" onClick={onGoToReview} type="button">
-        每日回味 →
+        每日回味
       </button>
     </>
   );

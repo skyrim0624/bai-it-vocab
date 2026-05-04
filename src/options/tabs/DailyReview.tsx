@@ -29,10 +29,10 @@ export function DailyReview({ db, isExample }: DailyReviewProps) {
   return (
     <>
       {/* Title + weekly stat */}
-      <div className="rv" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 36 }}>
+      <div className="review-head rv">
         <div>
-          <div className="section-head" style={{ marginBottom: 4 }}>每日回味</div>
-          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.2)" }}>打开看一眼，10 秒搞定</div>
+          <div className="section-head review-title">每日回味</div>
+          <div className="review-subtitle">打开看一眼，10 秒搞定</div>
         </div>
         <div className="weekly-stat">
           这周掰了 <span className="weekly-stat-num">{weekSentenceCount}</span> 句
@@ -49,14 +49,14 @@ export function DailyReview({ db, isExample }: DailyReviewProps) {
               onBreakCountChange={setBreakCount}
             />
           </GlassCard>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16, marginBottom: 44 }}>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.15)" }}>
+          <div className="review-action-row">
+            <div className="review-break-count">
               凭语感断，不用想语法 · 断了 {breakCount} 处
             </div>
             <button
-              className="cta-btn"
-              style={{ padding: "10px 28px", fontSize: 13 }}
+              className="cta-btn review-answer-btn"
               onClick={() => setShowAnswer(!showAnswer)}
+              aria-expanded={showAnswer}
               type="button"
             >
               {showAnswer ? "收起答案" : "看答案"}
@@ -67,7 +67,7 @@ export function DailyReview({ db, isExample }: DailyReviewProps) {
           {showAnswer && (
             <div className="answer-section rv">
               <div className="sub-label">AI 分块</div>
-              <GlassCard className="sentence-card" style={{ marginBottom: 0 }}>
+              <GlassCard className="sentence-card review-answer-card">
                 <ChunkLines
                   chunked={practiseSentence.chunked}
                   newWords={practiseSentence.new_words}
@@ -95,9 +95,10 @@ export function DailyReview({ db, isExample }: DailyReviewProps) {
                   <button
                     className="review-vocab-mastered"
                     onClick={() => toggleMastered(v.word)}
+                    aria-pressed={isMastered}
                     type="button"
                   >
-                    {isMastered ? "✓ 已掌握" : "标记掌握"}
+                    {isMastered ? "已掌握" : "标记掌握"}
                   </button>
                 </GlassCard>
               );

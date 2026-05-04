@@ -34,8 +34,11 @@ export function BreakPointSentence({ sentence, onBreakCountChange }: BreakPointS
           {i < words.length - 1 && (
             <>
               {" "}
-              <span
+              <button
+                type="button"
                 className={`break-point ${selected.has(i) ? "selected" : ""}`}
+                aria-pressed={selected.has(i)}
+                aria-label={`在第 ${i + 1} 个单词后断句`}
                 onClick={(e) => {
                   e.stopPropagation();
                   toggleBreak(i);

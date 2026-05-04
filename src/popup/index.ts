@@ -40,7 +40,7 @@ const ASSIST_HINTS: Record<number, string> = {
   5: "尽量都掰开",
 };
 
-/** 辅助力度 → 底层配置映射 */
+/** 辅助力度到底层配置的映射 */
 const ASSIST_TO_CONFIG: Record<number, { chunkGranularity: "coarse" | "medium" | "fine"; scanThreshold: "short" | "medium" | "long"; sensitivity: number }> = {
   1: { chunkGranularity: "coarse", scanThreshold: "long", sensitivity: 5 },
   2: { chunkGranularity: "coarse", scanThreshold: "long", sensitivity: 4 },
@@ -86,6 +86,8 @@ function updateSliderVisuals(level: number): void {
   const pct = ((level - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100;
   sliderFill.style.width = pct + "%";
   sliderThumb.style.left = pct + "%";
+  sliderContainer.setAttribute("aria-valuenow", String(level));
+  sliderContainer.setAttribute("aria-valuetext", ASSIST_HINTS[level]);
 }
 
 function getSliderLevelFromX(clientX: number): number {
@@ -107,7 +109,7 @@ function sendMessage(message: Message): Promise<unknown> {
   return chrome.runtime.sendMessage(message);
 }
 
-// ========== 辅助力度：config → slider 值 ==========
+// ========== 辅助力度：从配置推导滑杆值 ==========
 
 function configToAssistLevel(config: BaitConfig): number {
   const s = config.sensitivity;
@@ -118,7 +120,7 @@ function configToAssistLevel(config: BaitConfig): number {
   return 5;
 }
 
-// ========== 显示方式：chunkIntensity → mode key ==========
+// ========== 显示方式：从渲染强度推导模式 ==========
 
 function intensityToMode(intensity: number): string {
   if (intensity >= 4) return "structure";
@@ -132,18 +134,22 @@ function updateActionButton(): void {
   if (isChunking) {
     actionBtn.className = "action-btn is-on";
     actionText.textContent = "显示原文";
+    actionBtn.setAttribute("aria-pressed", "true");
   } else {
     actionBtn.className = "action-btn is-off";
     actionText.textContent = "掰it";
+    actionBtn.setAttribute("aria-pressed", "false");
   }
 
   // 站点禁用时，大按钮灰掉不可点
   if (!siteEnabled) {
     actionBtn.style.opacity = "0.4";
     actionBtn.style.pointerEvents = "none";
+    actionBtn.disabled = true;
   } else {
     actionBtn.style.opacity = "1";
     actionBtn.style.pointerEvents = "auto";
+    actionBtn.disabled = false;
   }
 }
 
@@ -162,6 +168,7 @@ function setDisplayMode(modeKey: string): void {
   btns.forEach((btn, i) => {
     const isActive = (btn as HTMLElement).dataset.mode === modeKey;
     btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-pressed", String(isActive));
     if (isActive) activeIndex = i;
   });
   segPill.style.transform = `translateX(${activeIndex * 100}%)`;
@@ -302,6 +309,18 @@ async function init(): Promise<void> {
     await sendMessage({ type: "updateConfig", config: mapping });
   });
 
+  sliderContainer.addEventListener("keydown", async (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End") return;
+    e.preventDefault();
+    if (e.key === "Home") currentLevel = SLIDER_MIN;
+    if (e.key === "End") currentLevel = SLIDER_MAX;
+    if (e.key === "ArrowLeft") currentLevel = Math.max(SLIDER_MIN, currentLevel - 1);
+    if (e.key === "ArrowRight") currentLevel = Math.min(SLIDER_MAX, currentLevel + 1);
+    updateSliderVisuals(currentLevel);
+    assistHint.textContent = ASSIST_HINTS[currentLevel];
+    await sendMessage({ type: "updateConfig", config: ASSIST_TO_CONFIG[currentLevel] });
+  });
+
   // 显示方式分段选择器
   segControl.addEventListener("click", async (e) => {
     const btn = (e.target as HTMLElement).closest(".seg-btn") as HTMLElement | null;
@@ -317,7 +336,7 @@ async function init(): Promise<void> {
     });
   });
 
-  // 更多设置 → Options 页
+  // 更多设置：打开管理页
   linkOptions.addEventListener("click", (e) => {
     e.preventDefault();
     chrome.runtime.openOptionsPage();

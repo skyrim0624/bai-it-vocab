@@ -9,6 +9,7 @@ export function FilterChip({ label, active, onClick }: FilterChipProps) {
     <button
       className={`filter-chip ${active ? "active" : ""}`}
       onClick={onClick}
+      aria-pressed={active}
       type="button"
     >
       {label}
