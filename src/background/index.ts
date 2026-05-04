@@ -91,8 +91,9 @@ async function lookupDictionaryOnlineFirst(
   offlineDefinition = ""
 ): Promise<DictionaryLookupResult> {
   const normalizedWord = normalizeLookupWord(word);
+  const browserIsOffline = navigator.onLine === false;
 
-  if (navigator.onLine !== false) {
+  if (!browserIsOffline) {
     try {
       const online = await lookupOnlineDictionary(normalizedWord, fetch, ONLINE_DICT_TIMEOUT);
       if (online?.definition) {
@@ -104,8 +105,10 @@ async function lookupDictionaryOnlineFirst(
     }
   }
 
-  const cached = await getCachedDictionaryResult(normalizedWord);
-  if (cached) return cached;
+  if (!browserIsOffline) {
+    const cached = await getCachedDictionaryResult(normalizedWord);
+    if (cached) return cached;
+  }
 
   if (offlineDefinition.trim()) {
     return {
