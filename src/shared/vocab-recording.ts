@@ -4,6 +4,7 @@ import { vocabContextDAO, vocabDAO } from "./db.ts";
 export interface VocabEncounterInput {
   word: string;
   definition?: string;
+  phonetic?: string;
 }
 
 function normalizeWord(word: string): string {
@@ -23,8 +24,13 @@ function uniqueWords(words: VocabEncounterInput[]): VocabEncounterInput[] {
 
     const existing = byWord.get(word);
     const definition = item.definition?.trim() ?? "";
-    if (!existing || (!existing.definition && definition)) {
-      byWord.set(word, { word, definition });
+    const phonetic = item.phonetic?.trim() ?? "";
+    if (!existing || (!existing.definition && definition) || (!existing.phonetic && phonetic)) {
+      byWord.set(word, {
+        word,
+        definition: definition || existing?.definition,
+        phonetic: phonetic || existing?.phonetic,
+      });
     }
   }
 
@@ -34,12 +40,16 @@ function uniqueWords(words: VocabEncounterInput[]): VocabEncounterInput[] {
 async function ensureVocab(
   db: IDBDatabase,
   word: string,
-  definition: string
+  definition: string,
+  phonetic?: string
 ): Promise<VocabRecord> {
   const existing = await vocabDAO.getByWord(db, word);
   if (existing) {
-    if (!existing.definition && definition) {
-      const updated = await vocabDAO.update(db, existing.id, { definition });
+    if ((!existing.definition && definition) || (!existing.phonetic && phonetic)) {
+      const updated = await vocabDAO.update(db, existing.id, {
+        definition: existing.definition || definition || undefined,
+        phonetic: existing.phonetic || phonetic || undefined,
+      });
       return updated ?? existing;
     }
     return existing;
@@ -49,6 +59,7 @@ async function ensureVocab(
     word,
     status: "new",
     definition: definition || undefined,
+    phonetic: phonetic || undefined,
   });
 }
 
@@ -67,7 +78,8 @@ export async function recordVocabEncounters(
 
   for (const item of uniqueWords(words)) {
     const definition = item.definition?.trim() ?? "";
-    const vocab = await ensureVocab(db, item.word, definition);
+    const phonetic = item.phonetic?.trim();
+    const vocab = await ensureVocab(db, item.word, definition, phonetic);
     const contexts = await vocabContextDAO.getByVocabId(db, vocab.id);
     const existingContext = contexts.find(
       (ctx) => normalizeSentence(ctx.sentence) === cleanSentence

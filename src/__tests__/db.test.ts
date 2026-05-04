@@ -930,6 +930,18 @@ describe("跨表业务场景", () => {
     expect(contexts[0].context_definition).toBe("有声望的");
   });
 
+  it("recordVocabEncounters 会保存在线词典返回的音标", async () => {
+    await recordVocabEncounters(
+      db,
+      [{ word: "synonymous", definition: "同义的", phonetic: "/sɪˈnɑːnɪməs/" }],
+      "The two terms are synonymous in this context.",
+      "https://example.com/a"
+    );
+
+    const vocab = await vocabDAO.getByWord(db, "synonymous");
+    expect(vocab!.phonetic).toBe("/sɪˈnɑːnɪməs/");
+  });
+
   it("recordVocabEncounters 同一单词同一句不重复计数", async () => {
     const sentence = "The update introduced a deterministic fallback.";
 

@@ -118,9 +118,15 @@ export type Message =
       type: "addVocabWord";
       word: string;
       definition?: string;
+      phonetic?: string;
       sentence: string;
       source_url: string;
       source_hostname: string;
+    }
+  | {
+      type: "lookupWordDefinition";
+      word: string;
+      offline_definition?: string;
     }
   | { type: "markWordMastered"; word: string }
   | { type: "generatePracticeSentence"; word?: string }
@@ -183,6 +189,17 @@ export interface StudyAdviceResult {
   expansion_words: string[];
   codex_prompt: string;
   source: "local" | "llm";
+}
+
+export type DictionaryLookupSource = "online" | "online-cache" | "offline" | "none";
+
+export interface DictionaryLookupResult {
+  word: string;
+  definition: string;
+  phonetic?: string;
+  source: DictionaryLookupSource;
+  provider?: string;
+  updated_at?: number;
 }
 
 // ========== IndexedDB 数据层（10 张表） ==========

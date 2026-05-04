@@ -9,7 +9,7 @@
  * 5. 管理配置和站点开关
  */
 
-import type { Message, BaitConfig, ChunkResult, PatternKey } from "../shared/types.ts";
+import type { Message, BaitConfig, ChunkResult, PatternKey, DictionaryLookupResult } from "../shared/types.ts";
 import { DEFAULT_CONFIG, resolveLLMConfig, migrateLLMConfig } from "../shared/types.ts";
 import { getCachedBatch, setCacheBatch } from "../shared/cache.ts";
 import { chunkSentences, analyzeSentenceFull } from "../shared/llm-adapter.ts";
@@ -17,6 +17,13 @@ import { openDB as openDataDB, pendingSentenceDAO, learningRecordDAO, vocabConte
 import { recordVocabEncounters } from "../shared/vocab-recording.ts";
 import { buildVocabEntries } from "../shared/vocab-export.ts";
 import { buildLocalStudyAdvice, generateLocalPracticeSentence } from "../shared/vocab-study.ts";
+import { lookupOnlineDictionary, normalizeLookupWord } from "../shared/online-dictionary.ts";
+
+const ONLINE_DICT_CACHE_KEY = "onlineDictionaryCacheV1";
+const ONLINE_DICT_CACHE_TTL = 30 * 24 * 60 * 60 * 1000;
+const ONLINE_DICT_TIMEOUT = 1600;
+
+type DictionaryCache = Record<string, DictionaryLookupResult>;
 
 // ========== 配置管理 ==========
 
@@ -45,6 +52,75 @@ async function updateConfig(partial: Partial<BaitConfig>): Promise<BaitConfig> {
   }
   await chrome.storage.sync.set(updated as Record<string, unknown>);
   return updated;
+}
+
+// ========== 在线词典 ==========
+
+async function getDictionaryCache(): Promise<DictionaryCache> {
+  const stored = await chrome.storage.local.get({ [ONLINE_DICT_CACHE_KEY]: {} });
+  const cache = stored[ONLINE_DICT_CACHE_KEY];
+  return cache && typeof cache === "object" && !Array.isArray(cache) ? cache as DictionaryCache : {};
+}
+
+async function putDictionaryCache(word: string, result: DictionaryLookupResult): Promise<void> {
+  const cache = await getDictionaryCache();
+  cache[word] = { ...result, updated_at: Date.now() };
+
+  // NOTE: 词典缓存可能长期增长，保留最近 500 条就足够支撑个人阅读场景。
+  const entries = Object.entries(cache).sort(
+    ([, a], [, b]) => (b.updated_at ?? 0) - (a.updated_at ?? 0)
+  );
+  await chrome.storage.local.set({
+    [ONLINE_DICT_CACHE_KEY]: Object.fromEntries(entries.slice(0, 500)),
+  });
+}
+
+async function getCachedDictionaryResult(word: string): Promise<DictionaryLookupResult | null> {
+  const cache = await getDictionaryCache();
+  const cached = cache[word];
+  if (!cached?.definition) return null;
+  if ((cached.updated_at ?? 0) < Date.now() - ONLINE_DICT_CACHE_TTL) return null;
+  return {
+    ...cached,
+    source: "online-cache",
+  };
+}
+
+async function lookupDictionaryOnlineFirst(
+  word: string,
+  offlineDefinition = ""
+): Promise<DictionaryLookupResult> {
+  const normalizedWord = normalizeLookupWord(word);
+
+  if (navigator.onLine !== false) {
+    try {
+      const online = await lookupOnlineDictionary(normalizedWord, fetch, ONLINE_DICT_TIMEOUT);
+      if (online?.definition) {
+        await putDictionaryCache(normalizedWord, online);
+        return online;
+      }
+    } catch {
+      // 网络、接口或超时失败时继续走缓存和离线兜底。
+    }
+  }
+
+  const cached = await getCachedDictionaryResult(normalizedWord);
+  if (cached) return cached;
+
+  if (offlineDefinition.trim()) {
+    return {
+      word: normalizedWord,
+      definition: offlineDefinition.trim(),
+      source: "offline",
+      provider: "离线词库",
+    };
+  }
+
+  return {
+    word: normalizedWord,
+    definition: "",
+    source: "none",
+  };
 }
 
 // ========== 站点开关 ==========
@@ -384,6 +460,10 @@ async function handleMessage(
     case "updateConfig":
       return updateConfig(message.config);
 
+    case "lookupWordDefinition": {
+      return lookupDictionaryOnlineFirst(message.word, message.offline_definition ?? "");
+    }
+
     case "saveSentence": {
       try {
         const db = await getDB();
@@ -414,7 +494,7 @@ async function handleMessage(
       const db = await getDB();
       await recordVocabEncounters(
         db,
-        [{ word: message.word, definition: message.definition ?? "" }],
+        [{ word: message.word, definition: message.definition ?? "", phonetic: message.phonetic }],
         message.sentence,
         message.source_url
       );

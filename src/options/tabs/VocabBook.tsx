@@ -316,7 +316,10 @@ export function VocabBook({ db }: VocabBookProps) {
               >
                 <div className="vocab-card-main">
                   <div>
-                    <div className="vocab-card-word">{vocab.word}</div>
+                    <div className="vocab-card-word-row">
+                      <div className="vocab-card-word">{vocab.word}</div>
+                      {vocab.phonetic && <div className="vocab-card-phonetic">{vocab.phonetic}</div>}
+                    </div>
                     <div className="vocab-card-def">{vocab.definition || latestContext?.context_definition || ""}</div>
                   </div>
                   <div className="vocab-card-meta">

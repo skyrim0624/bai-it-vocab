@@ -14,7 +14,13 @@ import {
   loadFrequencyList, loadDictionary, loadLemmaMap,
   annotateWords, toNewWordsFormat, isLoaded, lookupWordDefinition,
 } from "../shared/vocab.ts";
-import type { BaitConfig, ChunkResult, BackgroundMessage } from "../shared/types.ts";
+import type {
+  BaitConfig,
+  ChunkResult,
+  BackgroundMessage,
+  DictionaryLookupResult,
+  DictionaryLookupSource,
+} from "../shared/types.ts";
 import { DEFAULT_CONFIG } from "../shared/types.ts";
 import { createChunkedElement } from "./renderer.ts";
 import { ENLEARN_STYLES } from "./styles.ts";
@@ -46,9 +52,15 @@ let tooltipHideTimer: ReturnType<typeof setTimeout> | null = null;
 let currentTooltipData: {
   word: string;
   definition: string;
+  phonetic?: string;
+  source: DictionaryLookupSource;
+  provider?: string;
+  loading: boolean;
+  added: boolean;
   sentence: string;
   sourceUrl: string;
 } | null = null;
+let tooltipLookupSeq = 0;
 
 function setupTooltip(): void {
   if (tooltipEl) return;
@@ -87,7 +99,7 @@ async function onTooltipClick(e: MouseEvent): Promise<void> {
   e.preventDefault();
   e.stopPropagation();
 
-  const { word, definition, sentence, sourceUrl } = currentTooltipData;
+  const { word, definition, phonetic, sentence, sourceUrl } = currentTooltipData;
   const action = btn.dataset.action;
 
   if (action === "speak") {
@@ -100,12 +112,14 @@ async function onTooltipClick(e: MouseEvent): Promise<void> {
       type: "addVocabWord",
       word,
       definition,
+      phonetic,
       sentence,
       source_url: sourceUrl,
       source_hostname: window.location.hostname,
     });
-    btn.textContent = "已加入";
-    btn.classList.add("is-done");
+    currentTooltipData.added = true;
+    currentTooltipData.loading = false;
+    renderTooltip();
     return;
   }
 
@@ -149,18 +163,29 @@ function onWordHover(e: MouseEvent): void {
     sentence,
     sourceUrl: window.location.href,
     rect: wordEl.getBoundingClientRect(),
+    source: "offline",
+    loading: true,
   });
+  refreshTooltipDefinition(word, def);
 }
 
 function showWordTooltip({
   word,
   definition,
+  phonetic,
+  source = definition ? "offline" : "none",
+  provider,
+  loading = false,
   sentence,
   sourceUrl,
   rect,
 }: {
   word: string;
   definition: string;
+  phonetic?: string;
+  source?: DictionaryLookupSource;
+  provider?: string;
+  loading?: boolean;
   sentence: string;
   sourceUrl: string;
   rect: DOMRect;
@@ -169,16 +194,8 @@ function showWordTooltip({
 
   if (tooltipHideTimer) { clearTimeout(tooltipHideTimer); tooltipHideTimer = null; }
 
-  currentTooltipData = { word, definition, sentence, sourceUrl };
-  tooltipEl.innerHTML = `
-    <div class="enlearn-tooltip-main">
-      <div class="enlearn-tooltip-word">${escapeHtml(word)}</div>
-      <div class="enlearn-tooltip-def">${escapeHtml(definition || "未找到离线释义，可先加入生词本后用语境复习。")}</div>
-    </div>
-    <button class="enlearn-tooltip-btn" data-action="speak" title="听发音" aria-label="听发音">🔊</button>
-    <button class="enlearn-tooltip-btn enlearn-tooltip-add" data-action="add" title="加入生词本">加入</button>
-    <button class="enlearn-tooltip-btn" data-action="master" title="标记为已掌握">✓</button>
-  `;
+  currentTooltipData = { word, definition, phonetic, source, provider, loading, added: false, sentence, sourceUrl };
+  renderTooltip();
   tooltipEl.style.display = "flex";
 
   const tipRect = tooltipEl.getBoundingClientRect();
@@ -196,6 +213,87 @@ function showWordTooltip({
 
   tooltipEl.style.left = `${left}px`;
   tooltipEl.style.top = `${top}px`;
+}
+
+function renderTooltip(): void {
+  if (!tooltipEl || !currentTooltipData) return;
+  const data = currentTooltipData;
+  const sourceText = getTooltipSourceText(data.source, data.loading, data.provider);
+  const definition = data.definition || "未找到释义，可先加入生词本后用语境复习。";
+  const addLabel = data.added ? "已加入" : "加入";
+
+  tooltipEl.innerHTML = `
+    <div class="enlearn-tooltip-main">
+      <div class="enlearn-tooltip-head">
+        <div class="enlearn-tooltip-word">${escapeHtml(data.word)}</div>
+        ${data.phonetic ? `<div class="enlearn-tooltip-phonetic">${escapeHtml(data.phonetic)}</div>` : ""}
+      </div>
+      <div class="enlearn-tooltip-def">${escapeHtml(definition)}</div>
+      <div class="enlearn-tooltip-source ${data.loading ? "is-loading" : ""}">${escapeHtml(sourceText)}</div>
+    </div>
+    <div class="enlearn-tooltip-actions">
+      <button class="enlearn-tooltip-btn" data-action="speak" title="听发音" aria-label="听发音">${speakerIcon()}</button>
+      <button class="enlearn-tooltip-btn enlearn-tooltip-add ${data.added ? "is-done" : ""}" data-action="add" title="加入生词本" aria-label="加入生词本">${escapeHtml(addLabel)}</button>
+      <button class="enlearn-tooltip-btn" data-action="master" title="标记为已掌握" aria-label="标记为已掌握">${checkIcon()}</button>
+    </div>
+  `;
+}
+
+function getTooltipSourceText(
+  source: DictionaryLookupSource,
+  loading: boolean,
+  provider?: string
+): string {
+  if (loading) return "在线词库查询中";
+  if (source === "online") return provider ? `在线词库 · ${provider}` : "在线词库";
+  if (source === "online-cache") return "在线词库缓存";
+  if (source === "offline") return "离线词库";
+  return "暂无词库结果";
+}
+
+function speakerIcon(): string {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M11 5 6.5 9H3v6h3.5L11 19V5Z"></path>
+      <path d="M15 9.5a4 4 0 0 1 0 5"></path>
+      <path d="M17.5 7a7 7 0 0 1 0 10"></path>
+    </svg>
+  `;
+}
+
+function checkIcon(): string {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m5 12 4 4L19 6"></path>
+    </svg>
+  `;
+}
+
+async function refreshTooltipDefinition(word: string, offlineDefinition: string): Promise<void> {
+  const lookupId = ++tooltipLookupSeq;
+
+  try {
+    const result = await sendMessage({
+      type: "lookupWordDefinition",
+      word,
+      offline_definition: offlineDefinition,
+    }) as DictionaryLookupResult;
+
+    if (lookupId !== tooltipLookupSeq) return;
+    if (!currentTooltipData || currentTooltipData.word !== word) return;
+
+    currentTooltipData.definition = result.definition || offlineDefinition;
+    currentTooltipData.phonetic = result.phonetic;
+    currentTooltipData.source = result.source;
+    currentTooltipData.provider = result.provider;
+    currentTooltipData.loading = false;
+    renderTooltip();
+  } catch {
+    if (!currentTooltipData || currentTooltipData.word !== word) return;
+    currentTooltipData.loading = false;
+    currentTooltipData.source = offlineDefinition ? "offline" : "none";
+    renderTooltip();
+  }
 }
 
 function onWordLeave(e: MouseEvent): void {
@@ -309,7 +407,10 @@ function onDocumentWordClick(e: MouseEvent): void {
     sentence: getSentenceForElement(target, result.word),
     sourceUrl: window.location.href,
     rect,
+    source: definition ? "offline" : "none",
+    loading: true,
   });
+  refreshTooltipDefinition(result.word, definition);
 }
 
 function onTriggerParentHover(e: MouseEvent): void {

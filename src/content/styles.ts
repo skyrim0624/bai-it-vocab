@@ -73,78 +73,148 @@ export const ENLEARN_STYLES = `
 .enlearn-tooltip {
   position: fixed;
   display: none;
-  background: #1a1a2e;
-  color: #e2e8f0;
-  padding: 10px 11px;
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #111827;
+  padding: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  border-radius: 8px;
   font-size: 13px;
   line-height: 1.5;
   white-space: normal;
   z-index: 2147483647;
   pointer-events: auto;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15, 23, 42, 0.10);
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   display: none;
-  align-items: center;
-  gap: 8px;
-  max-width: 360px;
+  align-items: stretch;
+  gap: 12px;
+  max-width: min(420px, calc(100vw - 16px));
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 .enlearn-tooltip-main {
   min-width: 0;
-  max-width: 230px;
+  max-width: 300px;
+}
+
+.enlearn-tooltip-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 
 .enlearn-tooltip-word {
   font-weight: 700;
-  color: #f8fafc;
-  margin-bottom: 2px;
+  color: #0f172a;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.enlearn-tooltip-phonetic {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
 
 .enlearn-tooltip-def {
   display: block;
-  color: rgba(226,232,240,0.76);
-  font-size: 12px;
-  line-height: 1.45;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.55;
+  margin-top: 6px;
+}
+
+.enlearn-tooltip-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.enlearn-tooltip-source::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+}
+
+.enlearn-tooltip-source.is-loading::before {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14);
+  animation: enlearn-source-pulse 0.9s ease-in-out infinite;
+}
+
+.enlearn-tooltip-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .enlearn-tooltip-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  min-width: 36px;
+  height: 36px;
   padding: 0;
-  margin-left: 2px;
-  background: transparent;
-  border: 1.5px solid rgba(255,255,255,0.12);
-  border-radius: 50%;
-  color: rgba(255,255,255,0.25);
-  font-size: 11px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 650;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
   font-family: inherit;
   line-height: 1;
   flex-shrink: 0;
 }
 
+.enlearn-tooltip-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .enlearn-tooltip-btn:hover {
-  background: rgba(34,197,94,0.15);
-  border-color: rgba(34,197,94,0.5);
-  color: #4ade80;
+  background: #ecfeff;
+  border-color: #67e8f9;
+  color: #0f766e;
+  transform: translateY(-1px);
 }
 
 .enlearn-tooltip-add {
   width: auto;
   min-width: 42px;
-  border-radius: 999px;
-  padding: 0 9px;
+  padding: 0 12px;
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
 }
 
+.enlearn-tooltip-add:hover,
 .enlearn-tooltip-btn.is-done {
-  background: rgba(34,197,94,0.15);
-  border-color: rgba(34,197,94,0.5);
-  color: #4ade80;
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #ffffff;
+}
+
+@keyframes enlearn-source-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.08); }
 }
 
 /* 手动触发按钮 — inline 显示，不会被 overflow:hidden 裁剪 */
@@ -254,14 +324,48 @@ body.enlearn-paused .enlearn-original-hidden { display: block !important; }
   }
 
   .enlearn-tooltip {
-    background: #0f0f1a;
+    background: rgba(15, 23, 42, 0.96);
     color: #e2e8f0;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    border-color: rgba(148, 163, 184, 0.20);
+    box-shadow: 0 18px 44px rgba(0,0,0,0.38), 0 4px 12px rgba(0,0,0,0.28);
+  }
+
+  .enlearn-tooltip-word {
+    color: #f8fafc;
+  }
+
+  .enlearn-tooltip-phonetic,
+  .enlearn-tooltip-source {
+    color: #94a3b8;
+  }
+
+  .enlearn-tooltip-def {
+    color: #cbd5e1;
   }
 
   .enlearn-tooltip-btn {
-    border-color: rgba(255,255,255,0.1);
-    color: rgba(255,255,255,0.2);
+    background: rgba(30, 41, 59, 0.95);
+    border-color: rgba(148, 163, 184, 0.24);
+    color: #cbd5e1;
+  }
+
+  .enlearn-tooltip-btn:hover {
+    background: rgba(20, 184, 166, 0.16);
+    border-color: rgba(45, 212, 191, 0.52);
+    color: #5eead4;
+  }
+
+  .enlearn-tooltip-add {
+    background: #e2e8f0;
+    border-color: #e2e8f0;
+    color: #0f172a;
+  }
+
+  .enlearn-tooltip-add:hover,
+  .enlearn-tooltip-btn.is-done {
+    background: #22c55e;
+    border-color: #22c55e;
+    color: #052e16;
   }
 
   .enlearn-trigger {

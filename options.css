@@ -1044,6 +1044,294 @@ body {
   }
 }
 
+/* ═══ UI/UX Pro Max 打磨：清爽学习控制台 ═══ */
+:root {
+  --bait-bg: #0b1020;
+  --bait-surface: #111827;
+  --bait-surface-2: #162033;
+  --bait-border: rgba(148, 163, 184, 0.18);
+  --bait-text: #e5e7eb;
+  --bait-muted: #94a3b8;
+  --bait-soft: #64748b;
+  --bait-primary: #38bdf8;
+  --bait-primary-strong: #0ea5e9;
+  --bait-success: #22c55e;
+  --bait-warning: #f59e0b;
+  --bait-danger: #ef4444;
+}
+
+body {
+  background: var(--bait-bg);
+  color: var(--bait-text);
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+#app {
+  max-width: 1080px;
+  overflow: visible;
+}
+
+.noise,
+.ambience {
+  display: none;
+}
+
+.inner {
+  padding: 32px 40px 48px;
+}
+
+.glass {
+  background: rgba(17, 24, 39, 0.78);
+  border: 1px solid var(--bait-border);
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(2, 6, 23, 0.22);
+}
+
+.glass::before {
+  display: none;
+}
+
+.section-head,
+.settings-section-title,
+.sub-label,
+.sent-section-label {
+  letter-spacing: 0;
+}
+
+.section-head {
+  color: var(--bait-primary);
+  text-transform: none;
+  font-size: 14px;
+}
+
+.nav-bar {
+  margin-bottom: 30px;
+}
+
+.nav-glass {
+  background: rgba(15, 23, 42, 0.74);
+  border-color: var(--bait-border);
+  border-radius: 8px;
+}
+
+.nav-item {
+  min-height: 38px;
+  border-radius: 6px;
+  color: var(--bait-muted);
+}
+
+.nav-item:hover,
+.nav-item.active {
+  color: #f8fafc;
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.vocab-book-head {
+  align-items: center;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--bait-border);
+}
+
+.vocab-book-head .section-head {
+  margin-bottom: 6px;
+  color: #f8fafc;
+  font-size: 28px;
+  line-height: 1.15;
+  font-weight: 800;
+}
+
+.vocab-book-sub {
+  color: var(--bait-muted);
+}
+
+.vocab-export-btn,
+.vocab-status-actions button {
+  min-height: 40px;
+  border-radius: 8px;
+  border-color: var(--bait-border);
+  background: rgba(15, 23, 42, 0.70);
+  color: #cbd5e1;
+  font-weight: 650;
+}
+
+.vocab-export-btn:hover,
+.vocab-status-actions button:hover {
+  border-color: rgba(56, 189, 248, 0.46);
+  background: rgba(56, 189, 248, 0.10);
+  color: #e0f2fe;
+}
+
+.vocab-status-actions button.active {
+  border-color: rgba(34, 197, 94, 0.52);
+  background: rgba(34, 197, 94, 0.14);
+  color: #bbf7d0;
+}
+
+.vocab-export-btn:focus-visible,
+.vocab-status-actions button:focus-visible,
+.vocab-search:focus,
+.vocab-sort:focus,
+.filter-chip:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.70);
+  outline-offset: 2px;
+}
+
+.vocab-toolbar {
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 10px;
+}
+
+.vocab-search,
+.vocab-sort {
+  height: 44px;
+  border-radius: 8px;
+  border-color: var(--bait-border);
+  background: rgba(15, 23, 42, 0.70);
+  color: var(--bait-text);
+}
+
+.vocab-search::placeholder {
+  color: #64748b;
+}
+
+.filter-chip {
+  min-height: 36px;
+  border-radius: 8px;
+  border-color: var(--bait-border);
+  background: rgba(15, 23, 42, 0.62);
+  color: var(--bait-muted);
+}
+
+.filter-chip:hover,
+.filter-chip.active {
+  border-color: rgba(56, 189, 248, 0.42);
+  background: rgba(56, 189, 248, 0.10);
+  color: #e0f2fe;
+}
+
+.vocab-study-card,
+.vocab-card {
+  background: rgba(17, 24, 39, 0.82);
+  border-color: var(--bait-border);
+}
+
+.vocab-study-title,
+.vocab-card-word {
+  color: #f8fafc;
+}
+
+.vocab-card {
+  padding: 18px;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.vocab-card:hover {
+  border-color: rgba(56, 189, 248, 0.32);
+  background: rgba(22, 32, 51, 0.90);
+  transform: translateY(-1px);
+}
+
+.vocab-card-word-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.vocab-card-word {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.vocab-card-phonetic {
+  color: var(--bait-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.vocab-card-def,
+.vocab-practice-def,
+.vocab-practice-hint,
+.vocab-advice-summary {
+  color: #cbd5e1;
+}
+
+.vocab-card-sample,
+.vocab-context-sentence {
+  color: var(--bait-muted);
+}
+
+.vocab-card-meta {
+  color: var(--bait-soft);
+}
+
+.vocab-status {
+  border-color: transparent;
+  font-weight: 700;
+}
+
+.vocab-status.new {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.vocab-status.learning {
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.vocab-status.mastered {
+  color: #bbf7d0;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.vocab-context {
+  border-left-color: rgba(56, 189, 248, 0.42);
+}
+
+.vocab-context-def,
+.vocab-context-source,
+.vocab-context-empty,
+.vocab-study-sub,
+.vocab-study-empty,
+.vocab-advice-steps {
+  color: var(--bait-muted);
+}
+
+.vocab-practice-word,
+.vocab-advice-level {
+  color: var(--bait-primary);
+}
+
+.learn-title,
+.stat-num {
+  letter-spacing: 0;
+}
+
+@media (max-width: 760px) {
+  .inner {
+    padding: 24px 18px 36px;
+  }
+
+  .nav-bar {
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .nav-glass {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .vocab-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .vocab-status-actions {
+    flex-wrap: wrap;
+  }
+}
+
 /* ═══ EMPTY STATE ═══ */
 .empty-state {
   text-align: center;
