@@ -22,6 +22,7 @@ import type {
   DictionaryLookupSource,
 } from "../shared/types.ts";
 import { DEFAULT_CONFIG } from "../shared/types.ts";
+import { speakWordNaturally } from "../shared/speech.ts";
 import { createChunkedElement } from "./renderer.ts";
 import { ENLEARN_STYLES } from "./styles.ts";
 
@@ -307,12 +308,7 @@ function escapeHtml(s: string): string {
 }
 
 function speakWord(word: string): void {
-  if (!("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(word);
-  utterance.lang = "en-US";
-  utterance.rate = 0.9;
-  window.speechSynthesis.speak(utterance);
+  speakWordNaturally(word).catch(() => {});
 }
 
 function shouldIgnoreWordClick(target: Element): boolean {

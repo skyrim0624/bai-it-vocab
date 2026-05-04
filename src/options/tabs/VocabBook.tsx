@@ -13,6 +13,7 @@ import {
   type VocabWithContexts,
 } from "../../shared/vocab-export.ts";
 import { buildLocalStudyAdvice, generateLocalPracticeSentence } from "../../shared/vocab-study.ts";
+import { speakEnglish } from "../../shared/speech.ts";
 import { EmptyState } from "../components/EmptyState.tsx";
 import { GlassCard } from "../components/GlassCard.tsx";
 import { FilterChip } from "../components/FilterChip.tsx";
@@ -184,12 +185,8 @@ export function VocabBook({ db }: VocabBookProps) {
   };
 
   const speakPractice = () => {
-    if (!practice || !("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(practice.sentence);
-    utterance.lang = "en-US";
-    utterance.rate = 0.86;
-    window.speechSynthesis.speak(utterance);
+    if (!practice) return;
+    speakEnglish(practice.sentence, { lang: "en-US", rate: 0.82, pitch: 1.02 }).catch(() => {});
   };
 
   const copyCodexPrompt = async () => {
