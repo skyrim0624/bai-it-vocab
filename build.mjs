@@ -28,6 +28,10 @@ function copyStaticFiles() {
   // 图标
   mkdirSync("dist/icons", { recursive: true });
   cpSync("icons", "dist/icons", { recursive: true });
+
+  // 词库数据：不打进 content.js，按需作为扩展资源加载，降低每个页面的基础内存。
+  mkdirSync("dist/data", { recursive: true });
+  cpSync("data", "dist/data", { recursive: true });
 }
 
 // Background Service Worker — ESM（MV3 要求 type: module）

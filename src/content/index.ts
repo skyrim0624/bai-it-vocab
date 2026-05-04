@@ -26,12 +26,6 @@ import { speakWordNaturally } from "../shared/speech.ts";
 import { createChunkedElement } from "./renderer.ts";
 import { ENLEARN_STYLES } from "./styles.ts";
 
-// ========== 词汇数据（构建时打包）==========
-
-import wordFrequency from "../../data/word-frequency.json";
-import dictEntries from "../../data/dict-ecdict.json";
-import lemmaEntries from "../../data/lemma-map.json";
-
 // ========== 状态 ==========
 
 let config: BaitConfig = { ...DEFAULT_CONFIG };
@@ -42,8 +36,11 @@ const pendingElements = new Map<Element, string>();
 let intersectionObserver: IntersectionObserver | null = null;
 let mutationObserver: MutationObserver | null = null;
 let processTimer: ReturnType<typeof setTimeout> | null = null;
+let mutationScanTimer: ReturnType<typeof setTimeout> | null = null;
 const processQueue: Element[] = [];
+let queuedElements = new WeakSet<Element>();
 const knownWords = new Set<string>(); // 用户已掌握的词（从 storage 加载）
+let vocabDataPromise: Promise<void> | null = null;
 
 // ========== 全局 Tooltip ==========
 
@@ -427,6 +424,37 @@ function onTriggerParentLeave(e: MouseEvent): void {
   if (trigger) trigger.classList.remove("enlearn-trigger-visible");
 }
 
+// ========== 词汇数据按需加载 ==========
+
+async function loadExtensionJson<T>(path: string): Promise<T> {
+  const url = chrome.runtime.getURL(path);
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`加载扩展资源失败: ${path}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function ensureVocabDataLoaded(): Promise<void> {
+  if (isLoaded()) return;
+  if (vocabDataPromise) return vocabDataPromise;
+
+  vocabDataPromise = Promise.all([
+    loadExtensionJson<string[]>("data/word-frequency.json"),
+    loadExtensionJson<Record<string, string>>("data/dict-ecdict.json"),
+    loadExtensionJson<Record<string, string>>("data/lemma-map.json"),
+  ]).then(([wordFrequency, dictEntries, lemmaEntries]) => {
+    loadFrequencyList(wordFrequency);
+    loadDictionary(dictEntries);
+    loadLemmaMap(lemmaEntries);
+  }).catch((error) => {
+    vocabDataPromise = null;
+    throw error;
+  });
+
+  return vocabDataPromise;
+}
+
 // ========== 初始化 ==========
 
 async function init(): Promise<void> {
@@ -436,11 +464,6 @@ async function init(): Promise<void> {
   document.head.appendChild(style);
 
   setupTooltip();
-
-  // 加载词汇数据
-  loadFrequencyList(wordFrequency as string[]);
-  loadDictionary(dictEntries as Record<string, string>);
-  loadLemmaMap(lemmaEntries as Record<string, string>);
 
   // 加载用户已掌握的词
   try {
@@ -473,9 +496,16 @@ function activate(): void {
   if (isActive) return;
   isActive = true;
 
-  setupIntersectionObserver();
-  scanPage();
-  setupMutationObserver();
+  ensureVocabDataLoaded()
+    .then(() => {
+      if (!isActive || isPaused) return;
+      setupIntersectionObserver();
+      scanPage();
+      setupMutationObserver();
+    })
+    .catch(() => {
+      // 词库资源加载失败时保持扩展可关闭，不阻塞页面本身。
+    });
 
   chrome.storage.onChanged.addListener(onStorageChanged);
 }
@@ -496,7 +526,12 @@ function deactivate(): void {
     clearTimeout(processTimer);
     processTimer = null;
   }
+  if (mutationScanTimer) {
+    clearTimeout(mutationScanTimer);
+    mutationScanTimer = null;
+  }
   pendingElements.clear();
+  queuedElements = new WeakSet<Element>();
 
   restoreProcessedElements();
 
@@ -519,9 +554,14 @@ function pauseProcessing(): void {
   mutationObserver?.disconnect();
   intersectionObserver?.disconnect();
   processQueue.length = 0;
+  queuedElements = new WeakSet<Element>();
   if (processTimer) {
     clearTimeout(processTimer);
     processTimer = null;
+  }
+  if (mutationScanTimer) {
+    clearTimeout(mutationScanTimer);
+    mutationScanTimer = null;
   }
 
   // 暂停：隐藏分块 + 显示原文（用 JS 直接操作，不依赖 CSS body 级规则）
@@ -579,9 +619,14 @@ function reprocessPage(): void {
   processedElements = new WeakSet<Element>();
   pendingElements.clear();
   processQueue.length = 0;
+  queuedElements = new WeakSet<Element>();
   if (processTimer) {
     clearTimeout(processTimer);
     processTimer = null;
+  }
+  if (mutationScanTimer) {
+    clearTimeout(mutationScanTimer);
+    mutationScanTimer = null;
   }
 
   // 重新扫描
@@ -1110,15 +1155,20 @@ const SKIP_TAGS = new Set([
   "NAV", "HEADER", "FOOTER",
 ]);
 
+const FALLBACK_BLOCK_SELECTOR = Array.from(BLOCK_TAGS).join(",");
+const MAX_FALLBACK_CANDIDATES = 350;
+const MAX_QUEUE_SIZE = 80;
+
 /**
  * 兜底扫描：找出页面上"文本密集的叶子块级元素"
  * 叶子 = 自己是块级元素，但内部没有子块级元素（只有文本/行内元素）
  */
 function findTextLeafElements(): Element[] {
   const results: Element[] = [];
-  const allElements = document.body.querySelectorAll("*");
+  const allElements = document.body.querySelectorAll(FALLBACK_BLOCK_SELECTOR);
 
   for (const el of allElements) {
+    if (results.length >= MAX_FALLBACK_CANDIDATES) break;
     // 只看块级标签
     if (!BLOCK_TAGS.has(el.tagName)) continue;
 
@@ -1159,6 +1209,7 @@ function findTextLeafElements(): Element[] {
 
 function scanPage(): void {
   if (!isActive || isPaused) return;
+  if (!isLoaded()) return;
 
   // 第一轮：白名单精确匹配
   const candidates = document.querySelectorAll(DOM_SELECTORS);
@@ -1365,7 +1416,12 @@ function setupIntersectionObserver(): void {
 // ========== 批量处理 ==========
 
 function processVisibleElements(elements: Element[]): void {
-  processQueue.unshift(...elements);
+  for (const el of elements) {
+    if (queuedElements.has(el)) continue;
+    if (processQueue.length >= MAX_QUEUE_SIZE) break;
+    queuedElements.add(el);
+    processQueue.push(el);
+  }
   if (processTimer) clearTimeout(processTimer);
   processTimer = setTimeout(flushProcessQueue, 100);
 }
@@ -1378,6 +1434,7 @@ async function flushProcessQueue(): Promise<void> {
   const elementMap = new Map<string, Element>();
 
   for (const el of batch) {
+    queuedElements.delete(el);
     const text = pendingElements.get(el);
     if (!text) continue;
     sentences.push(text);
@@ -1437,6 +1494,15 @@ async function flushProcessQueue(): Promise<void> {
 }
 
 // ========== MutationObserver ==========
+
+function scheduleScanPage(delay = 300): void {
+  if (!isActive || isPaused) return;
+  if (mutationScanTimer) clearTimeout(mutationScanTimer);
+  mutationScanTimer = setTimeout(() => {
+    mutationScanTimer = null;
+    scanPage();
+  }, delay);
+}
 
 /**
  * 恢复单个被隐藏的原始元素（移除分块兄弟、恢复显示、清理截断覆盖）
@@ -1558,11 +1624,11 @@ function setupMutationObserver(): void {
       for (const el of changedHiddenEls) {
         restoreSingleElement(el);
       }
-      setTimeout(scanPage, 300);
+      scheduleScanPage(300);
     }
 
     if (hasNewContent) {
-      setTimeout(scanPage, 300);
+      scheduleScanPage(300);
     }
   });
 
