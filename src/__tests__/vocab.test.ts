@@ -6,6 +6,7 @@ import {
   isCommonWord,
   toNewWordsFormat,
   resetAll,
+  lookupWordDefinition,
 } from "../shared/vocab";
 
 import frequencyWords from "../../tests/fixtures/word-frequency-test.json";
@@ -144,6 +145,12 @@ describe("已知词跳过", () => {
 // ========== 辅助功能 ==========
 
 describe("辅助功能", () => {
+  it("主动点词时支持常见复合词兜底释义", () => {
+    expect(lookupWordDefinition("human-agent")).toContain("人类");
+    expect(lookupWordDefinition("human-agent")).toContain("智能体");
+    expect(lookupWordDefinition("non-technical")).toContain("非技术");
+  });
+
   it("toNewWordsFormat 正确转换", () => {
     const annotations = annotateWords(
       "The algorithm uses immutable data.",

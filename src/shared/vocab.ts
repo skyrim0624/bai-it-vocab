@@ -25,6 +25,14 @@ let frequencySet: Set<string> | null = null;
 let dictMap: Map<string, string> | null = null;
 let lemmaMap: Map<string, string> | null = null;
 
+const MANUAL_DEFINITIONS: Record<string, string> = {
+  human: "adj. 人类的；人的；n. 人",
+  agent: "n. 代理；智能体；执行任务的人或系统",
+  "human-agent": "adj. 人类与智能体协作的；人机代理协同的",
+  "non-technical": "adj. 非技术的；不需要技术背景的",
+  agentic: "adj. 智能体式的；能自主决策和行动的",
+};
+
 // ========== 数据加载 ==========
 
 /**
@@ -150,8 +158,12 @@ export function isCommonWord(word: string): boolean {
 /** 在通用词典中查找（含词形变体） */
 function lookupDictionary(word: string): string | null {
   if (!dictMap) return null;
+  const manual = MANUAL_DEFINITIONS[word.toLowerCase()];
+  if (manual) return manual;
+
   const candidates = getStemCandidates(word);
   for (const c of candidates) {
+    if (MANUAL_DEFINITIONS[c]) return MANUAL_DEFINITIONS[c];
     if (dictMap.has(c)) return dictMap.get(c)!;
   }
   return null;
@@ -160,7 +172,24 @@ function lookupDictionary(word: string): string | null {
 /** 查询单词释义，不套用常用词过滤，用于用户主动点词。 */
 export function lookupWordDefinition(word: string): string | null {
   if (shouldSkipWord(word)) return null;
-  return lookupDictionary(word);
+  const exact = lookupDictionary(word);
+  if (exact) return exact;
+
+  if (word.includes("-")) {
+    const parts = word
+      .split("-")
+      .map(part => part.trim())
+      .filter(part => part.length >= 3);
+    const definitions = parts
+      .map(part => {
+        const definition = lookupDictionary(part);
+        return definition ? `${part}: ${definition}` : "";
+      })
+      .filter(Boolean);
+    if (definitions.length > 0) return definitions.join("；");
+  }
+
+  return null;
 }
 
 /**
