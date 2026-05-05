@@ -43,6 +43,7 @@ let vocabDataPromise: Promise<void> | null = null;
 const translationCache = new Map<string, string>();
 
 const MAX_TRANSLATION_CACHE_SIZE = 50;
+const EXTENSION_CONTEXT_REFRESH_MESSAGE = "扩展刚刚更新，请刷新当前页面后再试。";
 
 // ========== 全局 Tooltip ==========
 
@@ -266,8 +267,11 @@ async function refreshTooltipDefinition(word: string, offlineDefinition: string)
     currentTooltipData.phonetic = result?.phonetic;
     currentTooltipData.loading = false;
     renderTooltip();
-  } catch {
+  } catch (err) {
     if (!currentTooltipData || currentTooltipData.word !== word) return;
+    if (isExtensionContextError(err)) {
+      currentTooltipData.definition = offlineDefinition || EXTENSION_CONTEXT_REFRESH_MESSAGE;
+    }
     currentTooltipData.loading = false;
     renderTooltip();
   }
@@ -798,8 +802,8 @@ async function handleTranslateClick(e: Event, article: HTMLElement, block: HTMLE
     button.classList.add("is-active");
     button.querySelector(".enlearn-translate-label")!.textContent = "收起翻译";
   } catch (err) {
-    const message = err instanceof Error ? err.message : "请检查 API Key 或网络";
-    setTranslationResult(block, `翻译失败：${message}`, true);
+    const message = getUserFacingErrorMessage(err, "请检查 API Key 或网络");
+    setTranslationResult(block, isExtensionContextError(err) ? message : `翻译失败：${message}`, true);
     button.classList.remove("is-active");
     button.querySelector(".enlearn-translate-label")!.textContent = "重新翻译";
   } finally {
@@ -1837,15 +1841,33 @@ function setupMutationObserver(): void {
 
 function sendMessage(message: unknown): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(message, (response) => {
-      const error = chrome.runtime.lastError;
-      if (error) {
-        reject(new Error(error.message));
-        return;
-      }
-      resolve(response);
-    });
+    try {
+      chrome.runtime.sendMessage(message, (response) => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          reject(new Error(error.message));
+          return;
+        }
+        resolve(response);
+      });
+    } catch (err) {
+      reject(err);
+    }
   });
+}
+
+function getErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err || "");
+}
+
+function isExtensionContextError(err: unknown): boolean {
+  return /extension context invalidated|context invalidated|receiving end does not exist|could not establish connection/i
+    .test(getErrorMessage(err));
+}
+
+function getUserFacingErrorMessage(err: unknown, fallback: string): string {
+  if (isExtensionContextError(err)) return EXTENSION_CONTEXT_REFRESH_MESSAGE;
+  return getErrorMessage(err) || fallback;
 }
 
 // ========== 启动 ==========
