@@ -111,14 +111,14 @@ describe("resolveLLMConfig", () => {
       activeProvider: "codex",
       providers: {
         ...DEFAULT_PROVIDERS,
-        codex: { apiKey: "bait-local-codex", model: "gpt-5.4-mini" },
+        codex: { apiKey: "bait-local-codex", model: "gpt-5.2" },
       },
     };
     const result = resolveLLMConfig(multi);
     expect(result.format).toBe("openai-compatible");
     expect(result.apiKey).toBe("bait-local-codex");
     expect(result.baseUrl).toBe("http://127.0.0.1:17877");
-    expect(result.model).toBe("gpt-5.4-mini");
+    expect(result.model).toBe("gpt-5.2");
   });
 
   it("fills newly added providers when resolving old stored config", () => {

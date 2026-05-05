@@ -32,8 +32,8 @@ export const PROVIDER_INFO: Record<
   },
   codex: {
     label: "Codex",
-    models: ["gpt-5.4-mini", "gpt-5.4", "gpt-5.3-codex"],
-    hint: "复用本机 Codex 登录态。先启动本机桥接服务，再在这里测试连接。",
+    models: ["gpt-5.2", "gpt-5.3-codex", "gpt-5.4-mini", "gpt-5.4"],
+    hint: "复用本机 Codex 登录态。gpt-5 在 ChatGPT 账号版 Codex 里不可用，默认用更轻的 gpt-5.2。",
   },
 };
 
