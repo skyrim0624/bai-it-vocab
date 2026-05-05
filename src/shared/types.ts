@@ -128,6 +128,11 @@ export type Message =
       word: string;
       offline_definition?: string;
     }
+  | {
+      type: "translateText";
+      text: string;
+      source_url?: string;
+    }
   | { type: "markWordMastered"; word: string }
   | { type: "generatePracticeSentence"; word?: string }
   | { type: "generateStudyAdvice" }

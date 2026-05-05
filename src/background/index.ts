@@ -12,7 +12,7 @@
 import type { Message, BaitConfig, ChunkResult, PatternKey, DictionaryLookupResult } from "../shared/types.ts";
 import { DEFAULT_CONFIG, resolveLLMConfig, migrateLLMConfig } from "../shared/types.ts";
 import { getCachedBatch, setCacheBatch } from "../shared/cache.ts";
-import { chunkSentences, analyzeSentenceFull } from "../shared/llm-adapter.ts";
+import { chunkSentences, analyzeSentenceFull, translateTextToChinese } from "../shared/llm-adapter.ts";
 import { openDB as openDataDB, pendingSentenceDAO, learningRecordDAO, vocabContextDAO, vocabDAO } from "../shared/db.ts";
 import { recordVocabEncounters } from "../shared/vocab-recording.ts";
 import { buildVocabEntries } from "../shared/vocab-export.ts";
@@ -465,6 +465,27 @@ async function handleMessage(
 
     case "lookupWordDefinition": {
       return lookupDictionaryOnlineFirst(message.word, message.offline_definition ?? "");
+    }
+
+    case "translateText": {
+      const text = message.text.trim();
+      if (!text) return { ok: false, error: "没有可翻译的内容" };
+
+      const cfg = await getConfig();
+      const llmCfg = resolveLLMConfig(cfg.llm);
+      if (!llmCfg.apiKey) {
+        return { ok: false, error: "API key 未配置" };
+      }
+
+      try {
+        const translation = await translateTextToChinese(text.slice(0, 5000), llmCfg);
+        return { ok: true, translation };
+      } catch (err) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : "翻译失败",
+        };
+      }
     }
 
     case "saveSentence": {

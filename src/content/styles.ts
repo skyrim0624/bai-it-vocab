@@ -206,6 +206,99 @@ export const ENLEARN_STYLES = `
   color: #ffffff;
 }
 
+/* X 帖子全文翻译 */
+.enlearn-translate-block {
+  display: flex !important;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  max-width: 100%;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  pointer-events: auto;
+}
+
+.enlearn-translate-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 30px;
+}
+
+.enlearn-translate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(29, 155, 240, 0.22);
+  border-radius: 999px;
+  background: rgba(29, 155, 240, 0.08);
+  color: #0f6fb8;
+  font: 600 13px/1 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.enlearn-translate-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.enlearn-translate-btn:hover {
+  background: rgba(29, 155, 240, 0.14);
+  border-color: rgba(29, 155, 240, 0.36);
+  color: #0b5f9f;
+  transform: translateY(-1px);
+}
+
+.enlearn-translate-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.enlearn-translate-btn:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
+}
+
+.enlearn-translate-btn.is-active {
+  background: rgba(15, 23, 42, 0.08);
+  border-color: rgba(15, 23, 42, 0.16);
+  color: #334155;
+}
+
+.enlearn-translate-result {
+  display: block;
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid #1d9bf0;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.045);
+  color: #1e293b;
+  font-size: 15px;
+  line-height: 1.58;
+  white-space: pre-wrap;
+}
+
+.enlearn-translate-result[hidden] {
+  display: none !important;
+}
+
+.enlearn-translate-result.is-error {
+  border-left-color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  color: #991b1b;
+}
+
 /* 手动触发按钮 — inline 显示，不会被 overflow:hidden 裁剪 */
 .enlearn-trigger {
   display: inline-flex;
@@ -364,6 +457,36 @@ body.enlearn-paused .enlearn-original-hidden { display: block !important; }
     color: #052e16;
   }
 
+  .enlearn-translate-btn {
+    background: rgba(96, 165, 250, 0.12);
+    border-color: rgba(96, 165, 250, 0.28);
+    color: #93c5fd;
+  }
+
+  .enlearn-translate-btn:hover {
+    background: rgba(96, 165, 250, 0.18);
+    border-color: rgba(96, 165, 250, 0.48);
+    color: #bfdbfe;
+  }
+
+  .enlearn-translate-btn.is-active {
+    background: rgba(148, 163, 184, 0.12);
+    border-color: rgba(148, 163, 184, 0.28);
+    color: #cbd5e1;
+  }
+
+  .enlearn-translate-result {
+    border-left-color: #60a5fa;
+    background: rgba(148, 163, 184, 0.12);
+    color: #e2e8f0;
+  }
+
+  .enlearn-translate-result.is-error {
+    border-left-color: #f87171;
+    background: rgba(248, 113, 113, 0.12);
+    color: #fecaca;
+  }
+
   .enlearn-trigger {
     color: rgba(96, 165, 250, 0.35);
   }
@@ -456,6 +579,7 @@ body.enlearn-paused .enlearn-original-hidden { display: block !important; }
 @media (prefers-reduced-motion: reduce) {
   .enlearn-tooltip,
   .enlearn-tooltip-btn,
+  .enlearn-translate-btn,
   .enlearn-word,
   .enlearn-trigger,
   .enlearn-loading::after {

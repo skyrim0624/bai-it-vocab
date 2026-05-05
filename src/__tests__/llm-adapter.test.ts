@@ -7,6 +7,8 @@ import {
   parseOpenAIResponse,
   parseChunkJson,
   mapToChunkResults,
+  buildTranslationPrompt,
+  parseTranslationJson,
 } from "../shared/llm-adapter.ts";
 import type { LLMConfig } from "../shared/types.ts";
 
@@ -56,6 +58,15 @@ describe("buildChunkPrompt", () => {
   it("无 knownWords 时用默认提示", () => {
     const prompt = buildChunkPrompt(TEST_SENTENCES);
     expect(prompt).toContain("IELTS 7+");
+  });
+});
+
+describe("buildTranslationPrompt", () => {
+  it("包含原文和 JSON 输出要求", () => {
+    const prompt = buildTranslationPrompt("I have open-sourced the project.");
+    expect(prompt).toContain("I have open-sourced the project.");
+    expect(prompt).toContain('"translation"');
+    expect(prompt).toContain("Simplified Chinese");
   });
 });
 
@@ -205,6 +216,21 @@ describe("parseChunkJson", () => {
 
   it("不是数组也不是对象包裹的值抛错", () => {
     expect(() => parseChunkJson('"just a string"')).toThrow("不是数组格式");
+  });
+});
+
+describe("parseTranslationJson", () => {
+  it("正确解析翻译 JSON", () => {
+    expect(parseTranslationJson('{"translation":"我已经开源了这个项目。"}')).toBe("我已经开源了这个项目。");
+  });
+
+  it("兼容 markdown fence 包裹", () => {
+    const text = "```json\n{\"translation\":\"你好\"}\n```";
+    expect(parseTranslationJson(text)).toBe("你好");
+  });
+
+  it("空翻译抛错", () => {
+    expect(() => parseTranslationJson('{"translation":""}')).toThrow("空翻译");
   });
 });
 

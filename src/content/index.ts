@@ -40,6 +40,9 @@ const processQueue: Element[] = [];
 let queuedElements = new WeakSet<Element>();
 const knownWords = new Set<string>(); // 用户已掌握的词（从 storage 加载）
 let vocabDataPromise: Promise<void> | null = null;
+const translationCache = new Map<string, string>();
+
+const MAX_TRANSLATION_CACHE_SIZE = 50;
 
 // ========== 全局 Tooltip ==========
 
@@ -662,6 +665,203 @@ function extractParagraphs(el: Element): string[] {
   return text.split(/\n+/).map(p => p.trim()).filter(p => p.length > 0);
 }
 
+// ========== X 帖子全文翻译 ==========
+
+interface TranslateTextResponse {
+  ok: boolean;
+  translation?: string;
+  error?: string;
+}
+
+const TRANSLATE_ICON_SVG = `
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M4 5h9"></path>
+    <path d="M9 3v2"></path>
+    <path d="M7 5c.6 2.2 2 4.1 4 5.5"></path>
+    <path d="M11 5c-.6 2.1-2.1 4.1-4.5 6"></path>
+    <path d="M14 19l3.5-8 3.5 8"></path>
+    <path d="M15.2 16h4.6"></path>
+  </svg>
+`;
+
+function isXHost(): boolean {
+  return /(^|\.)x\.com$|(^|\.)twitter\.com$/.test(window.location.hostname);
+}
+
+function normalizeTranslationText(text: string): string {
+  return text.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").replace(/[ \t]{2,}/g, " ").trim();
+}
+
+function getOwnTweetTextElement(article: Element): HTMLElement | null {
+  const texts = Array.from(article.querySelectorAll<HTMLElement>('[data-testid="tweetText"]'));
+  return texts.find((el) => el.closest('article, [role="article"]') === article) ?? texts[0] ?? null;
+}
+
+function getTextElementOriginalText(textEl: HTMLElement): string {
+  const chunkedSibling = textEl.nextElementSibling;
+  if (chunkedSibling?.classList.contains("enlearn-chunked")) {
+    const original = chunkedSibling.getAttribute("data-original");
+    if (original) return normalizeTranslationText(original);
+  }
+  const original = textEl.getAttribute("data-original");
+  if (original) return normalizeTranslationText(original);
+  return normalizeTranslationText(extractTextFromDOM(textEl));
+}
+
+function getArticleTranslationText(article: Element): string {
+  const textEl = getOwnTweetTextElement(article);
+  if (!textEl) return "";
+  return getTextElementOriginalText(textEl);
+}
+
+function getTranslateInsertionTarget(article: Element, textEl: HTMLElement): Element | null {
+  const localShowMore = textEl.parentElement?.querySelector('[data-testid="tweet-text-show-more-link"]');
+  if (localShowMore) return localShowMore;
+
+  const chunkedSibling = textEl.nextElementSibling;
+  if (chunkedSibling?.classList.contains("enlearn-chunked")) return chunkedSibling;
+
+  const articleShowMore = article.querySelector('[data-testid="tweet-text-show-more-link"]');
+  return articleShowMore ?? textEl;
+}
+
+function rememberTranslation(key: string, translation: string): void {
+  if (translationCache.has(key)) translationCache.delete(key);
+  translationCache.set(key, translation);
+  if (translationCache.size <= MAX_TRANSLATION_CACHE_SIZE) return;
+
+  const oldestKey = translationCache.keys().next().value;
+  if (oldestKey) translationCache.delete(oldestKey);
+}
+
+function setTranslationResult(block: HTMLElement, text: string, failed = false): void {
+  const result = block.querySelector<HTMLElement>(".enlearn-translate-result");
+  if (!result) return;
+  result.textContent = text;
+  result.hidden = false;
+  result.classList.toggle("is-error", failed);
+}
+
+async function handleTranslateClick(e: Event, article: HTMLElement, block: HTMLElement): Promise<void> {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const button = block.querySelector<HTMLButtonElement>(".enlearn-translate-btn");
+  const result = block.querySelector<HTMLElement>(".enlearn-translate-result");
+  if (!button || !result) return;
+
+  const currentText = normalizeTranslationText(getArticleTranslationText(article));
+  if (!currentText || !isEnglish(currentText)) {
+    setTranslationResult(block, "没有可翻译的英文内容。", true);
+    return;
+  }
+
+  if (!result.hidden && result.textContent?.trim() && !result.classList.contains("is-error")) {
+    result.hidden = true;
+    button.classList.remove("is-active");
+    button.querySelector(".enlearn-translate-label")!.textContent = "立即翻译";
+    return;
+  }
+
+  const cached = translationCache.get(currentText);
+  if (cached) {
+    setTranslationResult(block, cached);
+    button.classList.add("is-active");
+    button.querySelector(".enlearn-translate-label")!.textContent = "收起翻译";
+    return;
+  }
+
+  button.disabled = true;
+  button.classList.add("is-loading");
+  button.querySelector(".enlearn-translate-label")!.textContent = "翻译中";
+  result.hidden = true;
+  result.classList.remove("is-error");
+
+  try {
+    const response = await sendMessage({
+      type: "translateText",
+      text: currentText,
+      source_url: window.location.href,
+    }) as TranslateTextResponse;
+
+    if (!response?.ok || !response.translation) {
+      throw new Error(response?.error || "翻译失败");
+    }
+
+    rememberTranslation(currentText, response.translation);
+    setTranslationResult(block, response.translation);
+    button.classList.add("is-active");
+    button.querySelector(".enlearn-translate-label")!.textContent = "收起翻译";
+  } catch {
+    setTranslationResult(block, "翻译失败，请检查 API Key 或网络。", true);
+    button.classList.remove("is-active");
+    button.querySelector(".enlearn-translate-label")!.textContent = "重新翻译";
+  } finally {
+    button.disabled = false;
+    button.classList.remove("is-loading");
+  }
+}
+
+function createTranslateBlock(article: HTMLElement): HTMLElement {
+  const block = document.createElement("div");
+  block.className = "enlearn-translate-block";
+  block.innerHTML = `
+    <div class="enlearn-translate-actions">
+      <button class="enlearn-translate-btn" type="button" title="翻译这条帖子" aria-label="翻译这条帖子">
+        ${TRANSLATE_ICON_SVG}
+        <span class="enlearn-translate-label">立即翻译</span>
+      </button>
+    </div>
+    <div class="enlearn-translate-result" hidden></div>
+  `;
+
+  block.addEventListener("mousedown", (e) => {
+    e.stopPropagation();
+  });
+  block.addEventListener("click", (e) => {
+    e.stopPropagation();
+  });
+  block.querySelector(".enlearn-translate-btn")?.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  block.querySelector(".enlearn-translate-btn")?.addEventListener("click", (e) => {
+    handleTranslateClick(e, article, block).catch(() => {});
+  });
+  return block;
+}
+
+function attachTranslateButtons(): void {
+  if (!isXHost()) return;
+
+  const textElements = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="tweetText"]'));
+  const seenArticles = new WeakSet<Element>();
+
+  for (const textEl of textElements) {
+    const article = textEl.closest('article, [role="article"]') as HTMLElement | null;
+    if (!article || seenArticles.has(article)) continue;
+    seenArticles.add(article);
+
+    if (article.getAttribute("data-enlearn-translate-attached") === "1") {
+      if (article.querySelector(".enlearn-translate-block")) continue;
+      article.removeAttribute("data-enlearn-translate-attached");
+    }
+
+    const ownTextEl = getOwnTweetTextElement(article);
+    if (!ownTextEl) continue;
+
+    const text = getTextElementOriginalText(ownTextEl);
+    if (text.split(/\s+/).length < 4 || !isEnglish(text)) continue;
+
+    const target = getTranslateInsertionTarget(article, ownTextEl);
+    if (!target?.parentNode) continue;
+
+    const block = createTranslateBlock(article);
+    target.insertAdjacentElement("afterend", block);
+    article.setAttribute("data-enlearn-translate-attached", "1");
+  }
+}
+
 /**
  * 将段落拆成句子（在 ". " + 大写字母处断开）
  */
@@ -762,6 +962,10 @@ function insertChunkedElement(
 function restoreProcessedElements(): void {
   // 移除所有分块元素
   document.querySelectorAll(".enlearn-chunked").forEach(el => el.remove());
+  document.querySelectorAll(".enlearn-translate-block").forEach(el => el.remove());
+  document.querySelectorAll("[data-enlearn-translate-attached]").forEach(el => {
+    el.removeAttribute("data-enlearn-translate-attached");
+  });
 
   // 恢复隐藏的原始元素（清除 inline style + class）
   document.querySelectorAll(".enlearn-original-hidden").forEach(el => {
@@ -1221,6 +1425,8 @@ function scanPage(): void {
     processedElements.add(el);
     processElementWithLinks(el, text);
   }
+
+  attachTranslateButtons();
 }
 
 /** 处理单个文本元素：拆分 + 生词标注 + DOM 注入 */
@@ -1288,7 +1494,9 @@ function processTextElement(el: Element, text: string): void {
 
 function isEnlearnElement(el: Element): boolean {
   return el.closest(".enlearn-chunked") !== null ||
-    el.classList.contains("enlearn-chunked");
+    el.classList.contains("enlearn-chunked") ||
+    el.closest(".enlearn-translate-block") !== null ||
+    el.classList.contains("enlearn-translate-block");
 }
 
 // ========== 手动触发 ==========

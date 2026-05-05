@@ -344,6 +344,96 @@ Must be one of: ${VALID_PATTERN_KEYS.join(", ")}
 Return valid JSON only, no markdown fences.`;
 }
 
+// ========== 全文翻译 ==========
+
+export function buildTranslationPrompt(text: string): string {
+  return `You are a precise English-to-Chinese translator for Chinese readers browsing social media.
+
+Translate the following English post into natural Simplified Chinese.
+
+## Rules
+
+- Preserve the author's meaning, tone, and paragraph breaks.
+- Translate idioms naturally instead of word-for-word.
+- Keep product names, people names, @handles, hashtags, URLs, and code terms unchanged when translation would make them less clear.
+- Do not add commentary, explanations, notes, or markdown.
+
+## Input
+
+${text}
+
+## Output format
+
+Return valid JSON only:
+
+{
+  "translation": "中文译文"
+}`;
+}
+
+export function parseTranslationJson(text: string): string {
+  let cleaned = text.trim();
+  const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    cleaned = fenceMatch[1].trim();
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    throw new Error(`LLM 返回的 JSON 格式无效: ${cleaned.slice(0, 100)}...`);
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("LLM 返回的翻译结果不是对象");
+  }
+
+  const translation = String((parsed as Record<string, unknown>).translation || "").trim();
+  if (!translation) {
+    throw new Error("LLM 返回了空翻译");
+  }
+  return translation;
+}
+
+export async function translateTextToChinese(
+  text: string,
+  config: LLMConfig
+): Promise<string> {
+  const prompt = buildTranslationPrompt(text);
+
+  let responseData: unknown;
+
+  if (config.format === "gemini") {
+    const { url, body } = buildGeminiRequest(prompt, config);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini API 错误 (${response.status}): ${errorText.slice(0, 200)}`);
+    }
+    responseData = await response.json();
+  } else {
+    const { url, body, headers } = buildOpenAIRequest(prompt, config);
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OpenAI API 错误 (${response.status}): ${errorText.slice(0, 200)}`);
+    }
+    responseData = await response.json();
+  }
+
+  const responseText = extractResponseText(responseData, config.format);
+  return parseTranslationJson(responseText);
+}
+
 /**
  * 解析单条完整分析结果 JSON
  */
