@@ -35,6 +35,13 @@ const openaiConfig: LLMConfig = {
   model: "gpt-4o-mini",
 };
 
+const codexBridgeConfig: LLMConfig = {
+  format: "openai-compatible",
+  apiKey: "bait-local-codex",
+  baseUrl: "http://127.0.0.1:17877",
+  model: "gpt-5.4-mini",
+};
+
 // ========== Prompt 构建 ==========
 
 describe("buildChunkPrompt", () => {
@@ -125,6 +132,13 @@ describe("buildOpenAIRequest", () => {
     const { headers } = buildOpenAIRequest("test", openaiConfig);
     expect(headers.Authorization).toBe("Bearer sk-test-key-456");
     expect(headers["Content-Type"]).toBe("application/json");
+  });
+
+  it("支持 Codex 本机桥接 URL", () => {
+    const { url, headers, body } = buildOpenAIRequest("test", codexBridgeConfig);
+    expect(url).toBe("http://127.0.0.1:17877/v1/chat/completions");
+    expect(headers.Authorization).toBe("Bearer bait-local-codex");
+    expect(body.model).toBe("gpt-5.4-mini");
   });
 });
 

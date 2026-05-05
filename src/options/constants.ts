@@ -30,6 +30,11 @@ export const PROVIDER_INFO: Record<
     models: ["kimi-k2.5", "moonshot-v1-8k"],
     hint: "K2.5 是当前主力模型。moonshot-v1 是旧版。",
   },
+  codex: {
+    label: "Codex",
+    models: ["gpt-5.4-mini", "gpt-5.4", "gpt-5.3-codex"],
+    hint: "复用本机 Codex 登录态。先启动本机桥接服务，再在这里测试连接。",
+  },
 };
 
 /** 句式 key → 中文名映射 */

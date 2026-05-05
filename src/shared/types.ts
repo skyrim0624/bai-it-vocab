@@ -8,8 +8,8 @@ export interface LLMConfig {
   model: string;
 }
 
-/** 5 种 Provider */
-export type ProviderKey = "gemini" | "chatgpt" | "deepseek" | "qwen" | "kimi";
+/** 6 种 Provider */
+export type ProviderKey = "gemini" | "chatgpt" | "deepseek" | "qwen" | "kimi" | "codex";
 
 /** 单个 Provider 的存储数据 */
 export interface ProviderConfig {
@@ -40,6 +40,7 @@ export const DEFAULT_PROVIDERS: Record<ProviderKey, ProviderConfig> = {
   deepseek: { apiKey: "", model: "deepseek-chat" },
   qwen: { apiKey: "", model: "qwen3-flash" },
   kimi: { apiKey: "", model: "kimi-k2.5" },
+  codex: { apiKey: "bait-local-codex", model: "gpt-5.4-mini" },
 };
 
 export const DEFAULT_CONFIG: BaitConfig = {
@@ -61,12 +62,13 @@ export const PROVIDER_META: Record<ProviderKey, { format: LLMConfig["format"]; b
   deepseek: { format: "openai-compatible", baseUrl: "https://api.deepseek.com", label: "DeepSeek" },
   qwen: { format: "openai-compatible", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode", label: "Qwen" },
   kimi: { format: "openai-compatible", baseUrl: "https://api.moonshot.cn", label: "Kimi" },
+  codex: { format: "openai-compatible", baseUrl: "http://127.0.0.1:17877", label: "Codex" },
 };
 
 /** 从多 Provider 配置中解析出 LLMConfig（给 llm-adapter 用） */
 export function resolveLLMConfig(multi: LLMMultiConfig): LLMConfig {
   const provider = multi.activeProvider;
-  const pc = multi.providers[provider];
+  const pc = multi.providers[provider] ?? DEFAULT_PROVIDERS[provider];
   const meta = PROVIDER_META[provider];
   return {
     format: meta.format,
@@ -79,7 +81,11 @@ export function resolveLLMConfig(multi: LLMMultiConfig): LLMConfig {
 /** 旧格式升级到新格式（向后兼容） */
 export function migrateLLMConfig(raw: unknown): LLMMultiConfig {
   if (raw && typeof raw === "object" && "activeProvider" in (raw as Record<string, unknown>)) {
-    return raw as LLMMultiConfig;
+    const current = raw as LLMMultiConfig;
+    return {
+      activeProvider: current.activeProvider,
+      providers: { ...DEFAULT_PROVIDERS, ...current.providers },
+    };
   }
   // 旧格式: { format, apiKey, baseUrl, model }
   const old = raw as { format?: string; apiKey?: string; model?: string } | undefined;

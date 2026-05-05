@@ -105,6 +105,34 @@ describe("resolveLLMConfig", () => {
     expect(result.format).toBe("openai-compatible");
     expect(result.baseUrl).toBe("https://api.moonshot.cn");
   });
+
+  it("resolves Codex local bridge provider correctly", () => {
+    const multi: LLMMultiConfig = {
+      activeProvider: "codex",
+      providers: {
+        ...DEFAULT_PROVIDERS,
+        codex: { apiKey: "bait-local-codex", model: "gpt-5.4-mini" },
+      },
+    };
+    const result = resolveLLMConfig(multi);
+    expect(result.format).toBe("openai-compatible");
+    expect(result.apiKey).toBe("bait-local-codex");
+    expect(result.baseUrl).toBe("http://127.0.0.1:17877");
+    expect(result.model).toBe("gpt-5.4-mini");
+  });
+
+  it("fills newly added providers when resolving old stored config", () => {
+    const multi = {
+      activeProvider: "codex",
+      providers: {
+        gemini: { apiKey: "", model: "gemini-2.0-flash" },
+      },
+    } as unknown as LLMMultiConfig;
+    const migrated = migrateLLMConfig(multi);
+    const result = resolveLLMConfig(migrated);
+    expect(result.baseUrl).toBe("http://127.0.0.1:17877");
+    expect(result.apiKey).toBe("bait-local-codex");
+  });
 });
 
 // ========== migrateLLMConfig ==========
@@ -377,8 +405,8 @@ describe("Constants completeness", () => {
     }
   });
 
-  it("PROVIDER_INFO covers all 5 providers", () => {
-    const providers: ProviderKey[] = ["gemini", "chatgpt", "deepseek", "qwen", "kimi"];
+  it("PROVIDER_INFO covers all 6 providers", () => {
+    const providers: ProviderKey[] = ["gemini", "chatgpt", "deepseek", "qwen", "kimi", "codex"];
     for (const key of providers) {
       expect(PROVIDER_INFO[key]).toBeDefined();
       expect(PROVIDER_INFO[key].models.length).toBeGreaterThan(0);
@@ -386,8 +414,8 @@ describe("Constants completeness", () => {
     }
   });
 
-  it("PROVIDER_META covers all 5 providers", () => {
-    const providers: ProviderKey[] = ["gemini", "chatgpt", "deepseek", "qwen", "kimi"];
+  it("PROVIDER_META covers all 6 providers", () => {
+    const providers: ProviderKey[] = ["gemini", "chatgpt", "deepseek", "qwen", "kimi", "codex"];
     for (const key of providers) {
       expect(PROVIDER_META[key]).toBeDefined();
       expect(PROVIDER_META[key].label).toBeDefined();
@@ -396,7 +424,7 @@ describe("Constants completeness", () => {
   });
 
   it("DEFAULT_PROVIDERS has default model for each provider", () => {
-    const providers: ProviderKey[] = ["gemini", "chatgpt", "deepseek", "qwen", "kimi"];
+    const providers: ProviderKey[] = ["gemini", "chatgpt", "deepseek", "qwen", "kimi", "codex"];
     for (const key of providers) {
       expect(DEFAULT_PROVIDERS[key].model.length).toBeGreaterThan(0);
     }

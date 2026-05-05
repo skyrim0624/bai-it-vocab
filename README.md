@@ -100,6 +100,29 @@ Chrome 安装步骤：
 | DeepSeek | `deepseek-chat` | 中文解释自然、成本低 |
 | Qwen | `qwen3-flash` | 速度快 |
 | Kimi | `kimi-k2.5` | 可选 |
+| Codex 本机桥接 | `gpt-5.4-mini` | 个人私用，复用本机 Codex 登录态 |
+
+### Codex 本机桥接
+
+Codex Pro / Codex CLI 不是普通 OpenAI API Key。它使用本机 Codex 登录态，所以 Chrome 扩展不能、也不应该直接读取 `~/.codex/auth.json`。本项目提供一个只监听 `127.0.0.1` 的本机桥接服务：
+
+```bash
+npm run codex-bridge
+```
+
+然后在掰 it 管理页的设置中选择 `Codex`：
+
+- Token：默认 `bait-local-codex`
+- 模型：默认 `gpt-5.4-mini`
+- 地址：扩展内置为 `http://127.0.0.1:17877`
+
+如果你的 Codex CLI 当前不支持默认模型，可以临时换模型启动：
+
+```bash
+BAIT_CODEX_MODEL=gpt-5.3-codex npm run codex-bridge
+```
+
+这个桥接适合个人本机使用，不适合公开部署给朋友共用。朋友要用 Codex Provider，需要他们在自己电脑上登录 Codex CLI 并启动自己的本机桥接服务。
 
 ## 从源码构建
 
@@ -125,6 +148,7 @@ npm run build
 - 学习数据保存在浏览器本地 IndexedDB。
 - API key 只保存在本地浏览器里。
 - LLM 请求由你的浏览器直接发往你配置的模型服务商。
+- Codex Provider 只把请求发到 `127.0.0.1`，由本机桥接服务复用你自己的 Codex 登录态；扩展不会读取 Codex token。
 
 ## 许可证
 

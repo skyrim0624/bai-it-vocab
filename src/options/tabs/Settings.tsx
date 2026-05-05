@@ -5,7 +5,7 @@ import { chunkSentences } from "../../shared/llm-adapter.ts";
 import { GlassCard } from "../components/GlassCard.tsx";
 import { PROVIDER_INFO } from "../constants.ts";
 
-const PROVIDER_KEYS: ProviderKey[] = ["gemini", "chatgpt", "deepseek", "qwen", "kimi"];
+const PROVIDER_KEYS: ProviderKey[] = ["gemini", "chatgpt", "deepseek", "qwen", "kimi", "codex"];
 
 const TEST_SENTENCE = "Although the project had been delayed by several unexpected issues, the team managed to deliver a working prototype on time.";
 
@@ -18,7 +18,7 @@ interface SettingsProps {
 export function Settings({ config, configLoading: loading, updateLLM }: SettingsProps) {
   const [activeProvider, setActiveProvider] = useState<ProviderKey>("gemini");
   const [verifyStatus, setVerifyStatus] = useState<Record<ProviderKey, "idle" | "checking" | "ok" | "error">>({
-    gemini: "idle", chatgpt: "idle", deepseek: "idle", qwen: "idle", kimi: "idle",
+    gemini: "idle", chatgpt: "idle", deepseek: "idle", qwen: "idle", kimi: "idle", codex: "idle",
   });
   const [verifyError, setVerifyError] = useState<string>("");
 
@@ -90,6 +90,7 @@ export function Settings({ config, configLoading: loading, updateLLM }: Settings
 
   const currentProviderConfig = config.llm.providers[activeProvider] ?? DEFAULT_PROVIDERS[activeProvider];
   const providerInfo = PROVIDER_INFO[activeProvider];
+  const isCodex = activeProvider === "codex";
   const status = verifyStatus[activeProvider];
 
   return (
@@ -110,8 +111,12 @@ export function Settings({ config, configLoading: loading, updateLLM }: Settings
         </div>
         <div className="settings-row settings-key-setting">
           <div>
-            <div className="settings-label">{providerInfo.label} API Key</div>
-            <div className="settings-desc">你的 Key 只存在本地，不会上传到任何地方</div>
+            <div className="settings-label">{isCodex ? "Codex 本机桥接 Token" : `${providerInfo.label} API Key`}</div>
+            <div className="settings-desc">
+              {isCodex
+                ? "这里不是 OpenAI Key。扩展只连 127.0.0.1，真正的 Codex 登录态留在本机桥接服务里。"
+                : "你的 Key 只存在本地，不会上传到任何地方"}
+            </div>
           </div>
           <div className="settings-key-row">
             <input
@@ -119,8 +124,8 @@ export function Settings({ config, configLoading: loading, updateLLM }: Settings
               type="password"
               value={currentProviderConfig.apiKey}
               onChange={(e) => handleKeyChange(e.target.value)}
-              placeholder="填入你的 API Key"
-              aria-label={`${providerInfo.label} API Key`}
+              placeholder={isCodex ? "默认 bait-local-codex" : "填入你的 API Key"}
+              aria-label={isCodex ? "Codex 本机桥接 Token" : `${providerInfo.label} API Key`}
             />
             <button
               className="settings-verify-btn"

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "node build.mjs --watch",
     "build": "node build.mjs",
+    "codex-bridge": "node scripts/codex-bridge.mjs",
     "release": "npm test && npm run build && VERSION=$(node -p \"require('./manifest.json').version\") && cd dist && zip -r \"../bai-it-v${VERSION}.zip\" . && cd .. && node scripts/package-firefox.mjs && echo \"Packaged: bai-it-v${VERSION}.zip + Firefox zip\"",
     "test": "vitest run"
   },
