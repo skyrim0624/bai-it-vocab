@@ -21,6 +21,7 @@ export function Settings({ config, configLoading: loading, updateLLM }: Settings
     gemini: "idle", chatgpt: "idle", deepseek: "idle", qwen: "idle", kimi: "idle", codex: "idle",
   });
   const [verifyError, setVerifyError] = useState<string>("");
+  const [resetStatus, setResetStatus] = useState<"idle" | "resetting" | "done" | "error">("idle");
 
   // NOTE: 配置异步加载完成后同步本地 Tab，否则页面可能仍停在默认 Gemini。
   useEffect(() => {
@@ -86,6 +87,20 @@ export function Settings({ config, configLoading: loading, updateLLM }: Settings
     }
   }, [activeProvider, config.llm.providers]);
 
+  const handleResetLearningData = useCallback(async () => {
+    const confirmed = window.confirm("清空后不可恢复。API 配置会保留，只删除本地生词、句子、复习和缓存数据。");
+    if (!confirmed) return;
+
+    setResetStatus("resetting");
+    try {
+      const response = await chrome.runtime.sendMessage({ type: "resetLearningData" });
+      if (!response?.ok) throw new Error(response?.error || "清空失败");
+      setResetStatus("done");
+    } catch {
+      setResetStatus("error");
+    }
+  }, []);
+
   if (loading) return null;
 
   const currentProviderConfig = config.llm.providers[activeProvider] ?? DEFAULT_PROVIDERS[activeProvider];
@@ -94,71 +109,99 @@ export function Settings({ config, configLoading: loading, updateLLM }: Settings
   const status = verifyStatus[activeProvider];
 
   return (
-    <div className="settings-section rv">
-      <div className="settings-section-title">API Key</div>
-      <GlassCard className="settings-card">
-        <div className="settings-provider-row">
-          {PROVIDER_KEYS.map((p) => (
-            <button
-              key={p}
-              className={`settings-provider-btn ${activeProvider === p ? "active" : ""}`}
-              onClick={() => handleProviderSwitch(p)}
-              type="button"
-            >
-              {PROVIDER_INFO[p].label}
-            </button>
-          ))}
-        </div>
-        <div className="settings-row settings-key-setting">
-          <div>
-            <div className="settings-label">{isCodex ? "Codex 本机桥接 Token" : `${providerInfo.label} API Key`}</div>
-            <div className="settings-desc">
-              {isCodex
-                ? "这里不是 OpenAI Key。扩展只连 127.0.0.1，真正的 Codex 登录态留在本机桥接服务里。"
-                : "你的 Key 只存在本地，不会上传到任何地方"}
+    <>
+      <div className="settings-section rv">
+        <div className="settings-section-title">API Key</div>
+        <GlassCard className="settings-card">
+          <div className="settings-provider-row">
+            {PROVIDER_KEYS.map((p) => (
+              <button
+                key={p}
+                className={`settings-provider-btn ${activeProvider === p ? "active" : ""}`}
+                onClick={() => handleProviderSwitch(p)}
+                type="button"
+              >
+                {PROVIDER_INFO[p].label}
+              </button>
+            ))}
+          </div>
+          <div className="settings-row settings-key-setting">
+            <div>
+              <div className="settings-label">{isCodex ? "Codex 本机桥接 Token" : `${providerInfo.label} API Key`}</div>
+              <div className="settings-desc">
+                {isCodex
+                  ? "这里不是 OpenAI Key。扩展只连 127.0.0.1，真正的 Codex 登录态留在本机桥接服务里。"
+                  : "你的 Key 只存在本地，不会上传到任何地方"}
+              </div>
+            </div>
+            <div className="settings-key-row">
+              <input
+                className="settings-input"
+                type="password"
+                value={currentProviderConfig.apiKey}
+                onChange={(e) => handleKeyChange(e.target.value)}
+                placeholder={isCodex ? "默认 bait-local-codex" : "填入你的 API Key"}
+                aria-label={isCodex ? "Codex 本机桥接 Token" : `${providerInfo.label} API Key`}
+              />
+              <button
+                className="settings-verify-btn"
+                onClick={handleVerify}
+                disabled={status === "checking"}
+                type="button"
+              >
+                {status === "checking" ? "验证中" : "测试连接"}
+              </button>
             </div>
           </div>
-          <div className="settings-key-row">
-            <input
-              className="settings-input"
-              type="password"
-              value={currentProviderConfig.apiKey}
-              onChange={(e) => handleKeyChange(e.target.value)}
-              placeholder={isCodex ? "默认 bait-local-codex" : "填入你的 API Key"}
-              aria-label={isCodex ? "Codex 本机桥接 Token" : `${providerInfo.label} API Key`}
-            />
+          {(status === "ok" || status === "error") && (
+            <div className={`settings-verify-result ${status}`}>
+              {status === "ok" ? "连接成功" : verifyError}
+            </div>
+          )}
+          <div className="settings-row settings-model-setting">
+            <div>
+              <div className="settings-label">模型</div>
+            </div>
+            <select
+              className="settings-select"
+              value={currentProviderConfig.model}
+              onChange={(e) => handleModelChange(e.target.value)}
+              aria-label="选择模型"
+            >
+              {providerInfo.models.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+          <div className="settings-model-info">{providerInfo.hint}</div>
+        </GlassCard>
+      </div>
+
+      <div className="settings-section rv">
+        <div className="settings-section-title">本地数据</div>
+        <GlassCard className="settings-card">
+          <div className="settings-row settings-data-reset-row">
+            <div>
+              <div className="settings-label">重新开始学习记录</div>
+              <div className="settings-desc">清空本地生词、语境、句式、复习项和缓存，保留 API 配置。</div>
+            </div>
             <button
-              className="settings-verify-btn"
-              onClick={handleVerify}
-              disabled={status === "checking"}
+              className="settings-danger-btn"
+              onClick={handleResetLearningData}
+              disabled={resetStatus === "resetting"}
               type="button"
             >
-              {status === "checking" ? "验证中" : "测试连接"}
+              {resetStatus === "resetting" ? "清空中" : "清空学习数据"}
             </button>
           </div>
-        </div>
-        {(status === "ok" || status === "error") && (
-          <div className={`settings-verify-result ${status}`}>
-            {status === "ok" ? "连接成功" : verifyError}
-          </div>
-        )}
-        <div className="settings-row settings-model-setting">
-          <div>
-            <div className="settings-label">模型</div>
-          </div>
-          <select
-            className="settings-select"
-            value={currentProviderConfig.model}
-            onChange={(e) => handleModelChange(e.target.value)}
-            aria-label="选择模型"
-          >
-            {providerInfo.models.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        </div>
-        <div className="settings-model-info">{providerInfo.hint}</div>
-      </GlassCard>
-    </div>
+          {resetStatus === "done" && (
+            <div className="settings-reset-result ok">已清空。刷新管理页后会从 0 开始。</div>
+          )}
+          {resetStatus === "error" && (
+            <div className="settings-reset-result error">清空失败，请重新打开管理页再试。</div>
+          )}
+        </GlassCard>
+      </div>
+    </>
   );
 }

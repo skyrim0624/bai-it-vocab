@@ -33,10 +33,10 @@ export function App() {
   const { config, loading: configLoading, saveConfig, updateLLM } = useConfig();
   const onboarding = useOnboardingState(db, config, configLoading);
 
-  // Per-tab isExample — 只要有采集到的数据就不是示例
-  const dashboardIsExample = !onboarding.hasData;
-  const sentencesIsExample = !onboarding.hasData;
-  const reviewIsExample = !onboarding.hasData;
+  // NOTE: 管理页不再展示内置示例，避免把样例误认为自己的学习记录。
+  const dashboardIsExample = false;
+  const sentencesIsExample = false;
+  const reviewIsExample = false;
 
   const masteredWordsValue = useMasteredWordsProvider(db);
 

@@ -6,9 +6,9 @@ interface OnboardingBannerProps {
 }
 
 const TEXTS: Record<string, string> = {
-  browse: "以下是示例数据。去浏览几篇英文网页，你的学习数据就会出现在这里。",
-  api: "以下是示例数据。配置 API 后，你的难句将获得句型分析和结构化复习。",
-  "browse-with-api": "以下是示例数据。去浏览几篇英文网页，掰it 会自动分析你的难句。",
+  browse: "当前还没有你的学习记录。去浏览几篇英文网页，生词和难句会从这里开始积累。",
+  api: "当前还没有你的学习记录。配置 API 后，掰 it 会把难句拆解成可复习的句式。",
+  "browse-with-api": "当前还没有你的学习记录。去浏览几篇英文网页，掰 it 会自动记录你的生词和难句。",
 };
 
 export function OnboardingBanner({ variant, onGoToSettings }: OnboardingBannerProps) {

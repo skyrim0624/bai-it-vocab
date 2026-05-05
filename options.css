@@ -2110,6 +2110,44 @@ select:focus-visible,
   color: #fca5a5;
 }
 
+.settings-data-reset-row {
+  border-bottom: none;
+}
+
+.settings-danger-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.34);
+  background: rgba(127, 29, 29, 0.22);
+  color: #fecaca;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-danger-btn:hover {
+  border-color: rgba(248, 113, 113, 0.54);
+  background: rgba(127, 29, 29, 0.32);
+}
+
+.settings-danger-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-reset-result {
+  font-size: 12px;
+  padding-top: 10px;
+}
+
+.settings-reset-result.ok {
+  color: #86efac;
+}
+
+.settings-reset-result.error {
+  color: #fca5a5;
+}
+
 .toggle {
   width: 48px;
   height: 28px;

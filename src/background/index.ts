@@ -11,9 +11,9 @@
 
 import type { Message, BaitConfig, ChunkResult, PatternKey, DictionaryLookupResult } from "../shared/types.ts";
 import { DEFAULT_CONFIG, resolveLLMConfig, migrateLLMConfig } from "../shared/types.ts";
-import { getCachedBatch, setCacheBatch } from "../shared/cache.ts";
+import { clearCache, getCachedBatch, setCacheBatch } from "../shared/cache.ts";
 import { chunkSentences, analyzeSentenceFull, translateTextToChinese } from "../shared/llm-adapter.ts";
-import { openDB as openDataDB, pendingSentenceDAO, learningRecordDAO, vocabContextDAO, vocabDAO } from "../shared/db.ts";
+import { clearLearningData, openDB as openDataDB, pendingSentenceDAO, learningRecordDAO, vocabContextDAO, vocabDAO } from "../shared/db.ts";
 import { recordVocabEncounters } from "../shared/vocab-recording.ts";
 import { buildVocabEntries } from "../shared/vocab-export.ts";
 import { buildLocalStudyAdvice, generateLocalPracticeSentence } from "../shared/vocab-study.ts";
@@ -486,6 +486,19 @@ async function handleMessage(
           error: err instanceof Error ? err.message : "翻译失败",
         };
       }
+    }
+
+    case "resetLearningData": {
+      const db = await getDB();
+      await clearLearningData(db);
+      await clearCache();
+      await chrome.storage.local.remove([
+        "knownWords",
+        "statsDate",
+        "todayChunked",
+        ONLINE_DICT_CACHE_KEY,
+      ]);
+      return { ok: true };
     }
 
     case "saveSentence": {

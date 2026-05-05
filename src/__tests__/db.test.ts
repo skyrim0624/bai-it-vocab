@@ -17,6 +17,7 @@ import {
   reviewItemDAO,
   wallpaperRecordDAO,
   pendingSentenceDAO,
+  clearLearningData,
 } from "../shared/db";
 import { recordVocabEncounters } from "../shared/vocab-recording";
 
@@ -76,6 +77,42 @@ describe("Schema 升级", () => {
     const record = await vocabDAO.getByWord(db, "persistent");
     expect(record).toBeDefined();
     expect(record!.word).toBe("persistent");
+  });
+});
+
+describe("清空学习数据", () => {
+  it("清空生词、句子、复习数据，但保留设置", async () => {
+    await vocabDAO.add(db, {
+      word: "ephemeral",
+      status: "new",
+      definition: "短暂的",
+    });
+    await learningRecordDAO.add(db, {
+      sentence: "This is an ephemeral record.",
+      chunked: "This is an ephemeral record.",
+      new_words: [{ word: "ephemeral", definition: "短暂的" }],
+    });
+    await pendingSentenceDAO.add(db, {
+      text: "Pending sentence.",
+      source_url: "https://example.com",
+      source_hostname: "example.com",
+      manual: true,
+      new_words: [],
+    });
+    await reviewItemDAO.add(db, {
+      type: "word",
+      reference_id: "ephemeral",
+      next_review_at: Date.now(),
+    });
+    await settingsDAO.set(db, "theme", "dark");
+
+    await clearLearningData(db);
+
+    expect(await vocabDAO.getAll(db)).toHaveLength(0);
+    expect(await learningRecordDAO.getAll(db)).toHaveLength(0);
+    expect(await pendingSentenceDAO.getAll(db)).toHaveLength(0);
+    expect(await reviewItemDAO.getAll(db)).toHaveLength(0);
+    expect(await settingsDAO.get(db, "theme")).toBe("dark");
   });
 });
 

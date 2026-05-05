@@ -239,6 +239,14 @@ async function del(db: IDBDatabase, store: StoreName, id: string): Promise<void>
   await txToPromise(transaction);
 }
 
+async function clearStores(db: IDBDatabase, stores: StoreName[]): Promise<void> {
+  const transaction = db.transaction(stores, "readwrite");
+  for (const store of stores) {
+    transaction.objectStore(store).clear();
+  }
+  await txToPromise(transaction);
+}
+
 /** 按索引获取一条 */
 async function getOneByIndex<T>(
   db: IDBDatabase,
@@ -789,3 +797,19 @@ export const pendingSentenceDAO = {
     await del(db, STORES.pending_sentences, id);
   },
 };
+
+export const LEARNING_DATA_STORES: StoreName[] = [
+  STORES.vocab,
+  STORES.vocab_contexts,
+  STORES.patterns,
+  STORES.pattern_examples,
+  STORES.learning_records,
+  STORES.weekly_reports,
+  STORES.review_items,
+  STORES.wallpaper_records,
+  STORES.pending_sentences,
+];
+
+export async function clearLearningData(db: IDBDatabase): Promise<void> {
+  await clearStores(db, LEARNING_DATA_STORES);
+}

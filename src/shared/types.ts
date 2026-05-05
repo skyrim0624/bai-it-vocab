@@ -169,6 +169,7 @@ export type Message =
       text: string;
       source_url?: string;
     }
+  | { type: "resetLearningData" }
   | { type: "markWordMastered"; word: string }
   | { type: "generatePracticeSentence"; word?: string }
   | { type: "generateStudyAdvice" }
