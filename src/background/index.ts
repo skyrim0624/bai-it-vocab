@@ -92,24 +92,21 @@ async function lookupDictionaryOnlineFirst(
   sentence = ""
 ): Promise<DictionaryLookupResult> {
   const normalizedWord = normalizeLookupWord(word);
-  const browserIsOffline = navigator.onLine === false;
 
-  if (!browserIsOffline) {
-    try {
-      const online = await lookupOnlineDictionary(normalizedWord, fetch, ONLINE_DICT_TIMEOUT);
-      if (online?.definition) {
-        await putDictionaryCache(normalizedWord, online);
-        return online;
-      }
-    } catch {
-      // 网络、接口或超时失败时继续走缓存和离线兜底。
+  // NOTE: Chrome 扩展 Service Worker 里的 navigator.onLine 不够可靠。
+  // 用户主动点词时默认尝试在线词典，失败后再走缓存、离线和 AI 兜底。
+  try {
+    const online = await lookupOnlineDictionary(normalizedWord, fetch, ONLINE_DICT_TIMEOUT);
+    if (online?.definition) {
+      await putDictionaryCache(normalizedWord, online);
+      return online;
     }
+  } catch {
+    // 网络、接口或超时失败时继续走缓存和离线兜底。
   }
 
-  if (!browserIsOffline) {
-    const cached = await getCachedDictionaryResult(normalizedWord);
-    if (cached) return cached;
-  }
+  const cached = await getCachedDictionaryResult(normalizedWord);
+  if (cached) return cached;
 
   if (offlineDefinition.trim()) {
     return {

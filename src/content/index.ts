@@ -475,15 +475,18 @@ function activate(): void {
   if (isActive) return;
   isActive = true;
 
+  attachTranslateButtons();
+  setupMutationObserver();
+
   ensureVocabDataLoaded()
     .then(() => {
       if (!isActive || isPaused) return;
       setupIntersectionObserver();
       scanPage();
-      setupMutationObserver();
     })
     .catch(() => {
-      // 词库资源加载失败时保持扩展可关闭，不阻塞页面本身。
+      // 词库资源加载失败时，仍保留 X 帖子翻译能力。
+      attachTranslateButtons();
     });
 
   chrome.storage.onChanged.addListener(onStorageChanged);
@@ -1390,6 +1393,10 @@ function findTextLeafElements(): Element[] {
 
 function scanPage(): void {
   if (!isActive || isPaused) return;
+
+  // NOTE: 帖子翻译只依赖页面文本和后台 LLM，不应该被离线词库加载状态卡住。
+  attachTranslateButtons();
+
   if (!isLoaded()) return;
 
   // 第一轮：白名单精确匹配
@@ -1742,6 +1749,8 @@ function restoreSingleElement(el: Element): void {
 }
 
 function setupMutationObserver(): void {
+  if (mutationObserver) return;
+
   mutationObserver = new MutationObserver((mutations) => {
     let hasNewContent = false;
     const changedHiddenEls = new Set<Element>();
