@@ -107,35 +107,104 @@ export function Settings({ config, configLoading: loading, updateLLM }: Settings
   const providerInfo = PROVIDER_INFO[activeProvider];
   const isCodex = activeProvider === "codex";
   const status = verifyStatus[activeProvider];
+  const configuredProviderCount = PROVIDER_KEYS.filter((p) => {
+    const providerConfig = config.llm.providers[p] ?? DEFAULT_PROVIDERS[p];
+    return Boolean(providerConfig.apiKey?.trim());
+  }).length;
+  const providerStatusLabel = status === "checking"
+    ? "测试中"
+    : status === "ok"
+      ? "已连接"
+      : status === "error"
+        ? "需检查"
+        : currentProviderConfig.apiKey?.trim()
+          ? "已配置"
+          : "未配置";
 
   return (
     <>
-      <div className="settings-section rv">
-        <div className="settings-section-title">API Key</div>
-        <GlassCard className="settings-card">
-          <div className="settings-provider-row">
-            {PROVIDER_KEYS.map((p) => (
-              <button
-                key={p}
-                className={`settings-provider-btn ${activeProvider === p ? "active" : ""}`}
-                onClick={() => handleProviderSwitch(p)}
-                type="button"
-              >
-                {PROVIDER_INFO[p].label}
-              </button>
-            ))}
+      <div className="settings-page-head rv">
+        <div>
+          <div className="settings-kicker">配置中心</div>
+          <h1 className="settings-title">设置</h1>
+          <p className="settings-page-desc">管理模型通道、本机学习数据和连接状态。API Key 只保存在本地浏览器。</p>
+        </div>
+        <div className="settings-summary-grid" aria-label="当前设置状态">
+          <div className="settings-summary-item">
+            <span>当前通道</span>
+            <strong>{providerInfo.label}</strong>
           </div>
-          <div className="settings-row settings-key-setting">
+          <div className="settings-summary-item">
+            <span>模型</span>
+            <strong>{currentProviderConfig.model}</strong>
+          </div>
+          <div className={`settings-summary-item ${status === "error" ? "danger" : status === "ok" ? "ok" : ""}`}>
+            <span>连接状态</span>
+            <strong>{providerStatusLabel}</strong>
+          </div>
+          <div className="settings-summary-item">
+            <span>已配通道</span>
+            <strong>{configuredProviderCount}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-section rv">
+        <div className="settings-section-title">模型服务</div>
+        <GlassCard className="settings-card">
+          <div className="settings-card-head">
             <div>
-              <div className="settings-label">{isCodex ? "Codex 本机桥接 Token" : `${providerInfo.label} API Key`}</div>
+              <div className="settings-card-title">选择一个默认通道</div>
+              <div className="settings-desc">一键翻译、难句分析和学习建议会走这里配置的模型服务。</div>
+            </div>
+          </div>
+          <div className="settings-provider-row" role="tablist" aria-label="选择模型服务">
+            {PROVIDER_KEYS.map((p) => {
+              const providerConfig = config.llm.providers[p] ?? DEFAULT_PROVIDERS[p];
+              const providerStatus = verifyStatus[p];
+              const hasKey = Boolean(providerConfig.apiKey?.trim());
+              const statusText = providerStatus === "checking"
+                ? "测试中"
+                : providerStatus === "ok"
+                  ? "已连接"
+                  : providerStatus === "error"
+                    ? "异常"
+                    : hasKey
+                      ? "已配置"
+                      : "待填写";
+
+              return (
+                <button
+                  key={p}
+                  className={`settings-provider-btn ${activeProvider === p ? "active" : ""}`}
+                  onClick={() => handleProviderSwitch(p)}
+                  role="tab"
+                  aria-selected={activeProvider === p}
+                  type="button"
+                >
+                  <span className="settings-provider-name">{PROVIDER_INFO[p].label}</span>
+                  <span className={`settings-provider-state ${providerStatus === "error" ? "error" : hasKey ? "ready" : ""}`}>
+                    {statusText}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="settings-field-grid">
+            <div className="settings-field">
+              <label className="settings-label" htmlFor="settings-api-key">
+                {isCodex ? "Codex 本机桥接 Token" : `${providerInfo.label} API Key`}
+              </label>
               <div className="settings-desc">
                 {isCodex
                   ? "这里不是 OpenAI Key。扩展只连 127.0.0.1，真正的 Codex 登录态留在本机桥接服务里。"
-                  : "你的 Key 只存在本地，不会上传到任何地方"}
+                  : "你的 Key 只存在本地，不会上传到任何地方。"}
               </div>
             </div>
             <div className="settings-key-row">
               <input
+                id="settings-api-key"
                 className="settings-input"
                 type="password"
                 value={currentProviderConfig.apiKey}
@@ -158,20 +227,24 @@ export function Settings({ config, configLoading: loading, updateLLM }: Settings
               {status === "ok" ? "连接成功" : verifyError}
             </div>
           )}
-          <div className="settings-row settings-model-setting">
-            <div>
-              <div className="settings-label">模型</div>
+          <div className="settings-field-grid settings-model-setting">
+            <div className="settings-field">
+              <label className="settings-label" htmlFor="settings-model">模型</label>
+              <div className="settings-desc">翻译建议用快模型，深度分析再换更强模型。</div>
             </div>
-            <select
-              className="settings-select"
-              value={currentProviderConfig.model}
-              onChange={(e) => handleModelChange(e.target.value)}
-              aria-label="选择模型"
-            >
-              {providerInfo.models.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
+            <div>
+              <select
+                id="settings-model"
+                className="settings-select"
+                value={currentProviderConfig.model}
+                onChange={(e) => handleModelChange(e.target.value)}
+                aria-label="选择模型"
+              >
+                {providerInfo.models.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="settings-model-info">{providerInfo.hint}</div>
         </GlassCard>
@@ -179,10 +252,10 @@ export function Settings({ config, configLoading: loading, updateLLM }: Settings
 
       <div className="settings-section rv">
         <div className="settings-section-title">本地数据</div>
-        <GlassCard className="settings-card">
-          <div className="settings-row settings-data-reset-row">
+        <GlassCard className="settings-card settings-danger-card">
+          <div className="settings-data-reset-row">
             <div>
-              <div className="settings-label">重新开始学习记录</div>
+              <div className="settings-card-title">重新开始学习记录</div>
               <div className="settings-desc">清空本地生词、语境、句式、复习项和缓存，保留 API 配置。</div>
             </div>
             <button

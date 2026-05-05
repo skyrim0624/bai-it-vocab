@@ -4,10 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>掰it</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Syne:wght@400;500;700;800&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap&text=掰" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -643,6 +639,223 @@
       color: #ffffff;
     }
 
+    /* ===== UI/UX Pro Max：第二轮菜单精修 ===== */
+    :root {
+      --popup-bg: #0d0d0f;
+      --popup-surface: #17171a;
+      --popup-surface-2: #202025;
+      --popup-border: rgba(228, 228, 231, 0.14);
+      --popup-text: #f4f4f5;
+      --popup-muted: #a1a1aa;
+      --popup-soft: #71717a;
+      --popup-primary: #67e8f9;
+      --popup-success: #34d399;
+      --popup-danger: #fb7185;
+      --popup-ring: rgba(103, 232, 249, 0.72);
+    }
+
+    body {
+      width: 372px;
+      background: linear-gradient(180deg, #0d0d0f 0%, #111113 100%);
+      border: 1px solid rgba(228, 228, 231, 0.10);
+    }
+
+    .header {
+      padding: 18px 18px 14px;
+      align-items: flex-start;
+      background: rgba(23, 23, 26, 0.92);
+    }
+
+    .logo-wrap {
+      display: grid;
+      gap: 5px;
+    }
+
+    .logo .zh,
+    .logo .en {
+      font-family: inherit;
+      font-weight: 850;
+    }
+
+    .header-sub {
+      color: var(--popup-soft);
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .site-name {
+      max-width: 172px;
+      color: #d4d4d8;
+      background: rgba(39, 39, 42, 0.92);
+      border-color: rgba(228, 228, 231, 0.12);
+    }
+
+    .action-area {
+      padding: 18px 18px 14px;
+      background: rgba(13, 13, 15, 0.56);
+    }
+
+    .action-btn {
+      height: 54px;
+      justify-content: center;
+      padding: 0 16px 0 18px;
+      border-radius: 10px;
+      font-size: 15px;
+      gap: 12px;
+    }
+
+    .action-mark {
+      display: inline-grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      color: currentColor;
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .action-mark svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .action-btn.is-on {
+      color: #052e16;
+      background: linear-gradient(135deg, #6ee7b7, var(--popup-success));
+    }
+
+    .action-btn.is-off {
+      background: rgba(32, 32, 37, 0.92);
+      border-color: rgba(228, 228, 231, 0.14);
+      color: #e4e4e7;
+    }
+
+    .site-row {
+      margin: 0 18px 4px;
+      padding: 13px 14px;
+      border: 1px solid var(--popup-border);
+      border-radius: 10px;
+      background: rgba(23, 23, 26, 0.88);
+    }
+
+    .site-copy {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .site-row-title {
+      color: #f4f4f5;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .site-row-label {
+      color: var(--popup-muted);
+      font-size: 12px;
+    }
+
+    .site-row-label .domain {
+      max-width: 202px;
+      color: #d4d4d8;
+    }
+
+    .content {
+      padding: 0 18px 18px;
+    }
+
+    .section {
+      display: grid;
+      gap: 18px;
+      padding-top: 16px;
+    }
+
+    .section-title {
+      margin-bottom: 0;
+      color: #f4f4f5;
+      font-size: 14px;
+    }
+
+    .slider-row,
+    .display-block {
+      padding: 14px;
+      border: 1px solid var(--popup-border);
+      border-radius: 10px;
+      background: rgba(23, 23, 26, 0.78);
+    }
+
+    .slider-row {
+      margin-bottom: 0;
+    }
+
+    .slider-track-container {
+      min-height: 48px;
+    }
+
+    .slider-track {
+      background: rgba(63, 63, 70, 0.9);
+    }
+
+    .slider-fill {
+      background: linear-gradient(90deg, var(--popup-primary), var(--popup-success));
+    }
+
+    .slider-hint {
+      min-height: 18px;
+      margin-top: 6px;
+      color: #d4d4d8;
+    }
+
+    .display-label {
+      margin-bottom: 10px;
+    }
+
+    .seg-control {
+      margin-bottom: 10px;
+      background: rgba(32, 32, 37, 0.92);
+      border-color: var(--popup-border);
+    }
+
+    .seg-pill {
+      background: rgba(103, 232, 249, 0.13);
+      border-color: rgba(103, 232, 249, 0.28);
+    }
+
+    .seg-btn.active {
+      color: #cffafe;
+    }
+
+    .mode-desc {
+      min-height: 17px;
+      color: var(--popup-muted);
+    }
+
+    .display-preview {
+      height: 116px;
+      background: #101012;
+      border-color: rgba(228, 228, 231, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    .footer {
+      padding: 12px 18px 16px;
+      background: rgba(13, 13, 15, 0.88);
+    }
+
+    .footer a {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--popup-border);
+      border-radius: 10px;
+      background: rgba(23, 23, 26, 0.82);
+      color: #cffafe;
+    }
+
+    .footer a:hover {
+      border-color: rgba(103, 232, 249, 0.42);
+      background: rgba(103, 232, 249, 0.09);
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
@@ -656,8 +869,11 @@
 <body>
   <!-- 头部 -->
   <div class="header">
-    <div class="logo">
-      <span class="zh">掰</span><span class="en">it</span>
+    <div class="logo-wrap">
+      <div class="logo">
+        <span class="zh">掰</span><span class="en">it</span>
+      </div>
+      <span class="header-sub">英文阅读助手</span>
     </div>
     <span class="site-name" id="site-name">—</span>
   </div>
@@ -665,13 +881,24 @@
   <!-- 主操作按钮 -->
   <div class="action-area">
     <button class="action-btn is-on" id="action-btn" type="button" aria-live="polite">
+      <span class="action-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 7h16" />
+          <path d="M4 12h10" />
+          <path d="M4 17h7" />
+          <path d="m16 15 2 2 4-5" />
+        </svg>
+      </span>
       <span id="action-text">显示原文</span>
     </button>
   </div>
 
   <!-- 站点级开关 -->
   <div class="site-row">
-    <span class="site-row-label">总是掰 <span class="domain" id="site-domain">—</span></span>
+    <div class="site-copy">
+      <span class="site-row-title">当前网站</span>
+      <span class="site-row-label"><span class="domain" id="site-domain">—</span></span>
+    </div>
     <label class="toggle-sm" aria-label="切换当前网站启用状态">
       <input type="checkbox" id="site-toggle" checked>
       <div class="t-track"></div>
@@ -701,21 +928,23 @@
       </div>
 
       <!-- 显示模式：分段控件和预览 -->
-      <div class="display-label">
-        <span class="slider-label center">掰完怎么显示</span>
+      <div class="display-block">
+        <div class="display-label">
+          <span class="slider-label center">掰完怎么显示</span>
+        </div>
+
+        <div class="seg-control no-transition" id="seg-control">
+          <div class="seg-pill" id="seg-pill"></div>
+          <button class="seg-btn active" data-mode="structure" type="button" aria-pressed="true">详细</button>
+          <button class="seg-btn" data-mode="lines" type="button" aria-pressed="false">简洁</button>
+          <button class="seg-btn" data-mode="light" type="button" aria-pressed="false">轻微</button>
+        </div>
+
+        <div class="mode-desc" id="mode-desc">掰成段，缩进显示主从关系</div>
+
+        <!-- 共用预览区域 -->
+        <div class="display-preview mode-structure" id="preview"></div>
       </div>
-
-      <div class="seg-control no-transition" id="seg-control">
-        <div class="seg-pill" id="seg-pill"></div>
-        <button class="seg-btn active" data-mode="structure" type="button" aria-pressed="true">详细</button>
-        <button class="seg-btn" data-mode="lines" type="button" aria-pressed="false">简洁</button>
-        <button class="seg-btn" data-mode="light" type="button" aria-pressed="false">轻微</button>
-      </div>
-
-      <div class="mode-desc" id="mode-desc">掰成段，缩进显示主从关系</div>
-
-      <!-- 共用预览区域 -->
-      <div class="display-preview mode-structure" id="preview"></div>
     </div>
   </div>
 
