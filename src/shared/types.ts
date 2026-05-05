@@ -45,7 +45,7 @@ export const DEFAULT_PROVIDERS: Record<ProviderKey, ProviderConfig> = {
 
 export const DEFAULT_CONFIG: BaitConfig = {
   llm: {
-    activeProvider: "gemini",
+    activeProvider: "codex",
     providers: { ...DEFAULT_PROVIDERS },
   },
   sensitivity: 3,
@@ -78,25 +78,55 @@ export function resolveLLMConfig(multi: LLMMultiConfig): LLMConfig {
   };
 }
 
+function isProviderKey(value: unknown): value is ProviderKey {
+  return typeof value === "string" && value in DEFAULT_PROVIDERS;
+}
+
+function normalizeCodexProvider(provider: ProviderConfig): ProviderConfig {
+  const model = provider.model?.trim();
+  return {
+    apiKey: provider.apiKey?.trim() || DEFAULT_PROVIDERS.codex.apiKey,
+    model:
+      !model || model === "gpt-5" || model === "gpt-5.0" || model === "gpt-5.4-mini"
+        ? DEFAULT_PROVIDERS.codex.model
+        : model,
+  };
+}
+
+function normalizeProviders(providers: Partial<Record<ProviderKey, ProviderConfig>> | undefined): Record<ProviderKey, ProviderConfig> {
+  const merged = { ...DEFAULT_PROVIDERS, ...(providers ?? {}) };
+  merged.codex = normalizeCodexProvider(merged.codex);
+  return merged;
+}
+
+function chooseActiveProvider(
+  activeProvider: unknown,
+  providers: Record<ProviderKey, ProviderConfig>
+): ProviderKey {
+  const provider = isProviderKey(activeProvider) ? activeProvider : "codex";
+  return providers[provider]?.apiKey?.trim() ? provider : "codex";
+}
+
 /** 旧格式升级到新格式（向后兼容） */
 export function migrateLLMConfig(raw: unknown): LLMMultiConfig {
   if (raw && typeof raw === "object" && "activeProvider" in (raw as Record<string, unknown>)) {
     const current = raw as LLMMultiConfig;
+    const providers = normalizeProviders(current.providers);
     return {
-      activeProvider: current.activeProvider,
-      providers: { ...DEFAULT_PROVIDERS, ...current.providers },
+      activeProvider: chooseActiveProvider(current.activeProvider, providers),
+      providers,
     };
   }
   // 旧格式: { format, apiKey, baseUrl, model }
   const old = raw as { format?: string; apiKey?: string; model?: string } | undefined;
-  const providers = { ...DEFAULT_PROVIDERS };
+  const providers = normalizeProviders(undefined);
   if (old?.apiKey) {
     // 猜测旧 provider
     const guessProvider: ProviderKey = old.format === "gemini" ? "gemini" : "chatgpt";
     providers[guessProvider] = { apiKey: old.apiKey, model: old.model || DEFAULT_PROVIDERS[guessProvider].model };
     return { activeProvider: guessProvider, providers };
   }
-  return { activeProvider: "gemini", providers };
+  return { activeProvider: "codex", providers };
 }
 
 // ========== Content Script ↔ Service Worker 消息 ==========

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { ProviderKey, LLMMultiConfig } from "../../shared/types.ts";
 import { DEFAULT_PROVIDERS, PROVIDER_META, resolveLLMConfig } from "../../shared/types.ts";
 import { chunkSentences } from "../../shared/llm-adapter.ts";
@@ -22,12 +22,12 @@ export function Settings({ config, configLoading: loading, updateLLM }: Settings
   });
   const [verifyError, setVerifyError] = useState<string>("");
 
-  // Sync activeProvider from config once loaded
-  useState(() => {
+  // NOTE: 配置异步加载完成后同步本地 Tab，否则页面可能仍停在默认 Gemini。
+  useEffect(() => {
     if (!loading && config.llm.activeProvider) {
       setActiveProvider(config.llm.activeProvider);
     }
-  });
+  }, [loading, config.llm.activeProvider]);
 
   const handleProviderSwitch = useCallback((p: ProviderKey) => {
     setActiveProvider(p);

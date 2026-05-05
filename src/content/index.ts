@@ -792,8 +792,9 @@ async function handleTranslateClick(e: Event, article: HTMLElement, block: HTMLE
     setTranslationResult(block, response.translation);
     button.classList.add("is-active");
     button.querySelector(".enlearn-translate-label")!.textContent = "收起翻译";
-  } catch {
-    setTranslationResult(block, "翻译失败，请检查 API Key 或网络。", true);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "请检查 API Key 或网络";
+    setTranslationResult(block, `翻译失败：${message}`, true);
     button.classList.remove("is-active");
     button.querySelector(".enlearn-translate-label")!.textContent = "重新翻译";
   } finally {

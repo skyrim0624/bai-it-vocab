@@ -168,13 +168,39 @@ describe("migrateLLMConfig", () => {
 
   it("handles undefined/null gracefully", () => {
     const result = migrateLLMConfig(undefined);
-    expect(result.activeProvider).toBe("gemini");
-    expect(result.providers.gemini.apiKey).toBe("");
+    expect(result.activeProvider).toBe("codex");
+    expect(result.providers.codex.apiKey).toBe("bait-local-codex");
   });
 
   it("handles empty object gracefully", () => {
     const result = migrateLLMConfig({});
-    expect(result.activeProvider).toBe("gemini");
+    expect(result.activeProvider).toBe("codex");
+  });
+
+  it("switches empty stored provider to Codex bridge", () => {
+    const oldStored = {
+      activeProvider: "gemini",
+      providers: {
+        ...DEFAULT_PROVIDERS,
+        gemini: { apiKey: "", model: "gemini-3.1-flash-lite-preview" },
+      },
+    };
+    const result = migrateLLMConfig(oldStored);
+    expect(result.activeProvider).toBe("codex");
+    expect(result.providers.codex.model).toBe("gpt-5.2");
+  });
+
+  it("downgrades unsupported saved Codex model to the bridge default", () => {
+    const oldStored = {
+      activeProvider: "codex",
+      providers: {
+        ...DEFAULT_PROVIDERS,
+        codex: { apiKey: "bait-local-codex", model: "gpt-5" },
+      },
+    };
+    const result = migrateLLMConfig(oldStored);
+    expect(result.activeProvider).toBe("codex");
+    expect(result.providers.codex.model).toBe("gpt-5.2");
   });
 });
 
