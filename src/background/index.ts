@@ -12,7 +12,7 @@
 import type { Message, BaitConfig, ChunkResult, PatternKey, DictionaryLookupResult } from "../shared/types.ts";
 import { DEFAULT_CONFIG, resolveLLMConfig, migrateLLMConfig } from "../shared/types.ts";
 import { clearCache, getCachedBatch, setCacheBatch } from "../shared/cache.ts";
-import { chunkSentences, analyzeSentenceFull, translateTextToChinese } from "../shared/llm-adapter.ts";
+import { chunkSentences, analyzeSentenceFull, defineWordToChinese, translateTextToChinese } from "../shared/llm-adapter.ts";
 import { clearLearningData, openDB as openDataDB, pendingSentenceDAO, learningRecordDAO, vocabContextDAO, vocabDAO } from "../shared/db.ts";
 import { recordVocabEncounters } from "../shared/vocab-recording.ts";
 import { buildVocabEntries } from "../shared/vocab-export.ts";
@@ -21,7 +21,7 @@ import { lookupOnlineDictionary, normalizeLookupWord } from "../shared/online-di
 
 const ONLINE_DICT_CACHE_KEY = "onlineDictionaryCacheV1";
 const ONLINE_DICT_CACHE_TTL = 30 * 24 * 60 * 60 * 1000;
-const ONLINE_DICT_TIMEOUT = 1600;
+const ONLINE_DICT_TIMEOUT = 4500;
 
 type DictionaryCache = Record<string, DictionaryLookupResult>;
 
@@ -88,7 +88,8 @@ async function getCachedDictionaryResult(word: string): Promise<DictionaryLookup
 
 async function lookupDictionaryOnlineFirst(
   word: string,
-  offlineDefinition = ""
+  offlineDefinition = "",
+  sentence = ""
 ): Promise<DictionaryLookupResult> {
   const normalizedWord = normalizeLookupWord(word);
   const browserIsOffline = navigator.onLine === false;
@@ -117,6 +118,25 @@ async function lookupDictionaryOnlineFirst(
       source: "offline",
       provider: "离线词库",
     };
+  }
+
+  try {
+    const cfg = await getConfig();
+    const llmCfg = resolveLLMConfig(cfg.llm);
+    if (llmCfg.apiKey) {
+      const ai = await defineWordToChinese(normalizedWord, sentence, llmCfg);
+      if (ai.definition) {
+        return {
+          word: normalizedWord,
+          definition: ai.definition,
+          phonetic: ai.phonetic,
+          source: "ai",
+          provider: "AI 释义",
+        };
+      }
+    }
+  } catch {
+    // AI 兜底失败时返回空结果，tooltip 会给出可重试提示。
   }
 
   return {
@@ -361,6 +381,13 @@ chrome.runtime.onMessage.addListener(
   (message: Message, sender, sendResponse) => {
     handleMessage(message, sender).then((result) => {
       try { sendResponse(result); } catch { /* tab 可能已关闭 */ }
+    }).catch((error) => {
+      try {
+        sendResponse({
+          ok: false,
+          error: error instanceof Error ? error.message : "后台处理失败",
+        });
+      } catch { /* tab 可能已关闭 */ }
     });
     return true;
   }
@@ -464,7 +491,11 @@ async function handleMessage(
       return updateConfig(message.config);
 
     case "lookupWordDefinition": {
-      return lookupDictionaryOnlineFirst(message.word, message.offline_definition ?? "");
+      return lookupDictionaryOnlineFirst(
+        message.word,
+        message.offline_definition ?? "",
+        message.sentence ?? ""
+      );
     }
 
     case "translateText": {

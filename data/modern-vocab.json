@@ -71,6 +71,8 @@
   "guardrails": "n. 防护栏（限制 AI 行为的规则）",
   "grounding": "n. 接地（让 AI 基于事实回答）",
   "agentic": "a. 智能体式的（AI 自主决策和行动）",
+  "infographic": "n. 信息图；用图表和视觉元素呈现信息的设计",
+  "infographics": "n. 信息图（复数）；用图表和视觉元素呈现的信息设计",
   "multimodal": "a. 多模态的（处理文本+图像+音频）",
   "open-source": "a./n. 开源的；开源软件",
   "open-weight": "a. 开放权重的（模型权重公开但许可受限）",

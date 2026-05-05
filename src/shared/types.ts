@@ -163,6 +163,7 @@ export type Message =
       type: "lookupWordDefinition";
       word: string;
       offline_definition?: string;
+      sentence?: string;
     }
   | {
       type: "translateText";
@@ -233,7 +234,7 @@ export interface StudyAdviceResult {
   source: "local" | "llm";
 }
 
-export type DictionaryLookupSource = "online" | "online-cache" | "offline" | "none";
+export type DictionaryLookupSource = "online" | "online-cache" | "offline" | "ai" | "none";
 
 export interface DictionaryLookupResult {
   word: string;

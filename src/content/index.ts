@@ -211,7 +211,7 @@ function showWordTooltip({
 function renderTooltip(): void {
   if (!tooltipEl || !currentTooltipData) return;
   const data = currentTooltipData;
-  const definition = data.definition || (data.loading ? "正在查询释义..." : "未找到释义，可先加入生词本后用语境复习。");
+  const definition = data.definition || (data.loading ? "正在查询释义..." : "暂时没查到释义，可以稍后重试或直接加入生词本。");
   const addLabel = data.added ? "已加入" : "加入";
 
   tooltipEl.innerHTML = `
@@ -256,13 +256,14 @@ async function refreshTooltipDefinition(word: string, offlineDefinition: string)
       type: "lookupWordDefinition",
       word,
       offline_definition: offlineDefinition,
+      sentence: currentTooltipData?.sentence,
     }) as DictionaryLookupResult;
 
     if (lookupId !== tooltipLookupSeq) return;
     if (!currentTooltipData || currentTooltipData.word !== word) return;
 
-    currentTooltipData.definition = result.definition || offlineDefinition;
-    currentTooltipData.phonetic = result.phonetic;
+    currentTooltipData.definition = result?.definition || offlineDefinition;
+    currentTooltipData.phonetic = result?.phonetic;
     currentTooltipData.loading = false;
     renderTooltip();
   } catch {
@@ -419,10 +420,11 @@ async function ensureVocabDataLoaded(): Promise<void> {
   vocabDataPromise = Promise.all([
     loadExtensionJson<string[]>("data/word-frequency.json"),
     loadExtensionJson<Record<string, string>>("data/dict-ecdict.json"),
+    loadExtensionJson<Record<string, string>>("data/modern-vocab.json"),
     loadExtensionJson<Record<string, string>>("data/lemma-map.json"),
-  ]).then(([wordFrequency, dictEntries, lemmaEntries]) => {
+  ]).then(([wordFrequency, dictEntries, modernEntries, lemmaEntries]) => {
     loadFrequencyList(wordFrequency);
-    loadDictionary(dictEntries);
+    loadDictionary({ ...dictEntries, ...modernEntries });
     loadLemmaMap(lemmaEntries);
   }).catch((error) => {
     vocabDataPromise = null;
@@ -1825,8 +1827,15 @@ function setupMutationObserver(): void {
 // ========== 通信 ==========
 
 function sendMessage(message: unknown): Promise<unknown> {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage(message, resolve);
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(message, (response) => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve(response);
+    });
   });
 }
 

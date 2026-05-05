@@ -396,6 +396,105 @@ export function parseTranslationJson(text: string): string {
   return translation;
 }
 
+// ========== 单词释义 ==========
+
+export function buildWordDefinitionPrompt(word: string, sentence = ""): string {
+  const context = sentence.trim()
+    ? `\n\n## Context sentence\n\n${sentence.trim()}`
+    : "";
+
+  return `You are an English-Chinese dictionary for a browser reading assistant.
+
+Explain the selected English word or phrase in concise Simplified Chinese.
+
+## Word
+
+${word}
+${context}
+
+## Rules
+
+- Return the most likely meaning in this context.
+- Keep it short: part of speech + Chinese meaning, under 32 Chinese characters when possible.
+- If the word is a proper noun, brand name, username, or not a real English word, return an empty definition.
+- Do not add examples, notes, markdown, or extra commentary.
+
+## Output format
+
+Return valid JSON only:
+
+{
+  "definition": "n. 信息图；信息可视化图表",
+  "phonetic": ""
+}`;
+}
+
+export function parseWordDefinitionJson(text: string): { definition: string; phonetic?: string } {
+  let cleaned = text.trim();
+  const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    cleaned = fenceMatch[1].trim();
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    throw new Error(`LLM 返回的 JSON 格式无效: ${cleaned.slice(0, 100)}...`);
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("LLM 返回的单词释义不是对象");
+  }
+
+  const obj = parsed as Record<string, unknown>;
+  const definition = String(obj.definition || "").trim();
+  const phonetic = String(obj.phonetic || "").trim();
+  return {
+    definition,
+    phonetic: phonetic || undefined,
+  };
+}
+
+export async function defineWordToChinese(
+  word: string,
+  sentence: string,
+  config: LLMConfig
+): Promise<{ definition: string; phonetic?: string }> {
+  const prompt = buildWordDefinitionPrompt(word, sentence);
+
+  let responseData: unknown;
+
+  if (config.format === "gemini") {
+    const { url, body } = buildGeminiRequest(prompt, config);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini API 错误 (${response.status}): ${errorText.slice(0, 200)}`);
+    }
+    responseData = await response.json();
+  } else {
+    const { url, body, headers } = buildOpenAIRequest(prompt, config);
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OpenAI API 错误 (${response.status}): ${errorText.slice(0, 200)}`);
+    }
+    responseData = await response.json();
+  }
+
+  const responseText = extractResponseText(responseData, config.format);
+  return parseWordDefinitionJson(responseText);
+}
+
 export async function translateTextToChinese(
   text: string,
   config: LLMConfig

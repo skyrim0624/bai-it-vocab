@@ -8,6 +8,8 @@ import {
   parseChunkJson,
   mapToChunkResults,
   buildTranslationPrompt,
+  buildWordDefinitionPrompt,
+  parseWordDefinitionJson,
   parseTranslationJson,
 } from "../shared/llm-adapter.ts";
 import type { LLMConfig } from "../shared/types.ts";
@@ -74,6 +76,15 @@ describe("buildTranslationPrompt", () => {
     expect(prompt).toContain("I have open-sourced the project.");
     expect(prompt).toContain('"translation"');
     expect(prompt).toContain("Simplified Chinese");
+  });
+});
+
+describe("单词释义 Prompt", () => {
+  it("包含单词、上下文和 JSON 输出要求", () => {
+    const prompt = buildWordDefinitionPrompt("infographic", "These infographic designs look classy.");
+    expect(prompt).toContain("infographic");
+    expect(prompt).toContain("These infographic designs look classy.");
+    expect(prompt).toContain('"definition"');
   });
 });
 
@@ -245,6 +256,20 @@ describe("parseTranslationJson", () => {
 
   it("空翻译抛错", () => {
     expect(() => parseTranslationJson('{"translation":""}')).toThrow("空翻译");
+  });
+});
+
+describe("parseWordDefinitionJson", () => {
+  it("正确解析单词释义 JSON", () => {
+    expect(parseWordDefinitionJson('{"definition":"n. 信息图","phonetic":""}')).toEqual({
+      definition: "n. 信息图",
+      phonetic: undefined,
+    });
+  });
+
+  it("兼容 markdown fence 包裹", () => {
+    const text = "```json\n{\"definition\":\"adj. 精致的\"}\n```";
+    expect(parseWordDefinitionJson(text).definition).toBe("adj. 精致的");
   });
 });
 

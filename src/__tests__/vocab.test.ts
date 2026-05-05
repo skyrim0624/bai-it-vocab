@@ -151,6 +151,11 @@ describe("辅助功能", () => {
     expect(lookupWordDefinition("non-technical")).toContain("非技术");
   });
 
+  it("主动点词时支持离线现代内容词兜底释义", () => {
+    expect(lookupWordDefinition("infographic")).toContain("信息图");
+    expect(lookupWordDefinition("infographics")).toContain("信息图");
+  });
+
   it("toNewWordsFormat 正确转换", () => {
     const annotations = annotateWords(
       "The algorithm uses immutable data.",

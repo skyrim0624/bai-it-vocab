@@ -31,6 +31,7 @@ const MANUAL_DEFINITIONS: Record<string, string> = {
   "human-agent": "adj. 人类与智能体协作的；人机代理协同的",
   "non-technical": "adj. 非技术的；不需要技术背景的",
   agentic: "adj. 智能体式的；能自主决策和行动的",
+  infographic: "n. 信息图；用图表和视觉元素呈现信息的设计",
 };
 
 // ========== 数据加载 ==========
