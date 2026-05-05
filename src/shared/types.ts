@@ -40,7 +40,7 @@ export const DEFAULT_PROVIDERS: Record<ProviderKey, ProviderConfig> = {
   deepseek: { apiKey: "", model: "deepseek-chat" },
   qwen: { apiKey: "", model: "qwen3-flash" },
   kimi: { apiKey: "", model: "kimi-k2.5" },
-  codex: { apiKey: "bait-local-codex", model: "gpt-5.2" },
+  codex: { apiKey: "bait-local-codex", model: "gpt-5.4-mini" },
 };
 
 export const DEFAULT_CONFIG: BaitConfig = {
@@ -87,7 +87,7 @@ function normalizeCodexProvider(provider: ProviderConfig): ProviderConfig {
   return {
     apiKey: provider.apiKey?.trim() || DEFAULT_PROVIDERS.codex.apiKey,
     model:
-      !model || model === "gpt-5" || model === "gpt-5.0" || model === "gpt-5.4-mini"
+      !model || model === "gpt-5" || model === "gpt-5.0"
         ? DEFAULT_PROVIDERS.codex.model
         : model,
   };

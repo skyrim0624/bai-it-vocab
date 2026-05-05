@@ -79,7 +79,7 @@ export interface GeminiRequestBody {
   contents: { parts: { text: string }[] }[];
   generationConfig: {
     temperature: number;
-    responseMimeType: string;
+    responseMimeType?: string;
     thinkingConfig: { thinkingBudget: number };
   };
 }
@@ -100,11 +100,18 @@ export function buildGeminiRequest(prompt: string, config: LLMConfig): { url: st
   return { url, body };
 }
 
+export function buildGeminiTextRequest(prompt: string, config: LLMConfig): { url: string; body: GeminiRequestBody } {
+  const { url, body } = buildGeminiRequest(prompt, config);
+  delete body.generationConfig.responseMimeType;
+  return { url, body };
+}
+
 export interface OpenAIRequestBody {
   model: string;
   messages: { role: string; content: string }[];
   temperature: number;
   response_format?: { type: string };
+  max_tokens?: number;
 }
 
 export function buildOpenAIRequest(prompt: string, config: LLMConfig): { url: string; body: OpenAIRequestBody; headers: Record<string, string> } {
@@ -127,6 +134,43 @@ export function buildOpenAIRequest(prompt: string, config: LLMConfig): { url: st
   };
 
   return { url, body, headers };
+}
+
+export function buildOpenAITextRequest(
+  prompt: string,
+  config: LLMConfig,
+  maxTokens?: number
+): { url: string; body: OpenAIRequestBody; headers: Record<string, string> } {
+  const baseUrl = config.baseUrl.replace(/\/+$/, "");
+  const url = `${baseUrl}/v1/chat/completions`;
+
+  const body: OpenAIRequestBody = {
+    model: config.model,
+    messages: [
+      { role: "system", content: "你是快速英译中引擎。只输出简体中文译文，不要解释。" },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0,
+  };
+
+  if (maxTokens) {
+    body.max_tokens = maxTokens;
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${config.apiKey}`,
+  };
+
+  return { url, body, headers };
+}
+
+export function resolveFastTranslationConfig(config: LLMConfig): LLMConfig {
+  const baseUrl = config.baseUrl.replace(/\/+$/, "");
+  if (config.format === "openai-compatible" && baseUrl === "http://127.0.0.1:17877") {
+    return { ...config, model: "gpt-5.4-mini" };
+  }
+  return config;
 }
 
 // ========== 响应解析 ==========
@@ -347,28 +391,9 @@ Return valid JSON only, no markdown fences.`;
 // ========== 全文翻译 ==========
 
 export function buildTranslationPrompt(text: string): string {
-  return `You are a precise English-to-Chinese translator for Chinese readers browsing social media.
+  return `把下面英文帖文快速翻译成自然简体中文。保留段落；人名、@用户名、URL、代码词、产品名不硬翻。只输出译文，不要解释。
 
-Translate the following English post into natural Simplified Chinese.
-
-## Rules
-
-- Preserve the author's meaning, tone, and paragraph breaks.
-- Translate idioms naturally instead of word-for-word.
-- Keep product names, people names, @handles, hashtags, URLs, and code terms unchanged when translation would make them less clear.
-- Do not add commentary, explanations, notes, or markdown.
-
-## Input
-
-${text}
-
-## Output format
-
-Return valid JSON only:
-
-{
-  "translation": "中文译文"
-}`;
+${text}`;
 }
 
 export function parseTranslationJson(text: string): string {
@@ -394,6 +419,23 @@ export function parseTranslationJson(text: string): string {
     throw new Error("LLM 返回了空翻译");
   }
   return translation;
+}
+
+export function parseTranslationText(text: string): string {
+  const cleaned = text.trim();
+  if (!cleaned) {
+    throw new Error("LLM 返回了空翻译");
+  }
+
+  try {
+    return parseTranslationJson(cleaned);
+  } catch {
+    return cleaned
+      .replace(/^```(?:[a-zA-Z]+)?\s*/, "")
+      .replace(/\s*```$/, "")
+      .replace(/^["“]|["”]$/g, "")
+      .trim();
+  }
 }
 
 // ========== 单词释义 ==========
@@ -500,11 +542,13 @@ export async function translateTextToChinese(
   config: LLMConfig
 ): Promise<string> {
   const prompt = buildTranslationPrompt(text);
+  const maxTokens = Math.min(1200, Math.max(160, Math.ceil(text.length * 1.5)));
+  const translationConfig = resolveFastTranslationConfig(config);
 
   let responseData: unknown;
 
   if (config.format === "gemini") {
-    const { url, body } = buildGeminiRequest(prompt, config);
+    const { url, body } = buildGeminiTextRequest(prompt, config);
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -516,21 +560,42 @@ export async function translateTextToChinese(
     }
     responseData = await response.json();
   } else {
-    const { url, body, headers } = buildOpenAIRequest(prompt, config);
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`OpenAI API 错误 (${response.status}): ${errorText.slice(0, 200)}`);
+    try {
+      responseData = await fetchOpenAITextResponse(prompt, translationConfig, maxTokens);
+    } catch (err) {
+      if (translationConfig.model !== config.model && shouldRetryOriginalTranslationModel(err)) {
+        responseData = await fetchOpenAITextResponse(prompt, config, maxTokens);
+      } else {
+        throw err;
+      }
     }
-    responseData = await response.json();
   }
 
   const responseText = extractResponseText(responseData, config.format);
-  return parseTranslationJson(responseText);
+  return parseTranslationText(responseText);
+}
+
+async function fetchOpenAITextResponse(
+  prompt: string,
+  config: LLMConfig,
+  maxTokens: number
+): Promise<unknown> {
+  const { url, body, headers } = buildOpenAITextRequest(prompt, config, maxTokens);
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI API 错误 (${response.status}): ${errorText.slice(0, 200)}`);
+  }
+  return response.json();
+}
+
+function shouldRetryOriginalTranslationModel(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err || "");
+  return /model|unsupported|unknown|unavailable|not found|无效|不可用/i.test(message);
 }
 
 /**

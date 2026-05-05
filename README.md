@@ -100,7 +100,7 @@ Chrome 安装步骤：
 | DeepSeek | `deepseek-chat` | 中文解释自然、成本低 |
 | Qwen | `qwen3-flash` | 速度快 |
 | Kimi | `kimi-k2.5` | 可选 |
-| Codex 本机桥接 | `gpt-5.2` | 个人私用，复用本机 Codex 登录态 |
+| Codex 本机桥接 | `gpt-5.4-mini` | 个人私用，复用本机 Codex 登录态；点击翻译更快 |
 
 ### Codex 本机桥接
 
@@ -113,10 +113,10 @@ npm run codex-bridge
 然后在掰 it 管理页的设置中选择 `Codex`：
 
 - Token：默认 `bait-local-codex`
-- 模型：默认 `gpt-5.2`
+- 模型：默认 `gpt-5.4-mini`
 - 地址：扩展内置为 `http://127.0.0.1:17877`
 
-注意：`gpt-5` 这个精确模型名当前不支持 ChatGPT 账号版 Codex；本项目默认使用更轻的 `gpt-5.2`。
+注意：`gpt-5` 这个精确模型名当前不支持 ChatGPT 账号版 Codex；本项目默认使用更轻的 `gpt-5.4-mini`。如果你更看重深度分析质量，可以在设置页切回 `gpt-5.2` 或其他更强模型。
 
 如果你的 Codex CLI 当前不支持默认模型，可以临时换模型启动：
 

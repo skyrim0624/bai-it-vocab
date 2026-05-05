@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   buildChunkPrompt,
+  buildGeminiTextRequest,
   buildGeminiRequest,
   buildOpenAIRequest,
+  buildOpenAITextRequest,
   parseGeminiResponse,
   parseOpenAIResponse,
   parseChunkJson,
@@ -11,6 +13,8 @@ import {
   buildWordDefinitionPrompt,
   parseWordDefinitionJson,
   parseTranslationJson,
+  parseTranslationText,
+  resolveFastTranslationConfig,
 } from "../shared/llm-adapter.ts";
 import type { LLMConfig } from "../shared/types.ts";
 
@@ -71,11 +75,11 @@ describe("buildChunkPrompt", () => {
 });
 
 describe("buildTranslationPrompt", () => {
-  it("包含原文和 JSON 输出要求", () => {
+  it("包含原文和纯文本输出要求", () => {
     const prompt = buildTranslationPrompt("I have open-sourced the project.");
     expect(prompt).toContain("I have open-sourced the project.");
-    expect(prompt).toContain('"translation"');
-    expect(prompt).toContain("Simplified Chinese");
+    expect(prompt).toContain("简体中文");
+    expect(prompt).toContain("只输出译文");
   });
 });
 
@@ -111,6 +115,11 @@ describe("buildGeminiRequest", () => {
     const configNoModel = { ...geminiConfig, model: "" };
     const { url } = buildGeminiRequest("test", configNoModel);
     expect(url).toContain("gemini-2.0-flash");
+  });
+
+  it("文本请求不强制 JSON MIME", () => {
+    const { body } = buildGeminiTextRequest("translate", geminiConfig);
+    expect(body.generationConfig.responseMimeType).toBeUndefined();
   });
 });
 
@@ -150,6 +159,19 @@ describe("buildOpenAIRequest", () => {
     expect(url).toBe("http://127.0.0.1:17877/v1/chat/completions");
     expect(headers.Authorization).toBe("Bearer bait-local-codex");
     expect(body.model).toBe("gpt-5.2");
+  });
+
+  it("文本请求不要求 JSON response_format", () => {
+    const { body } = buildOpenAITextRequest("translate", openaiConfig, 256);
+    expect(body.response_format).toBeUndefined();
+    expect(body.max_tokens).toBe(256);
+    expect(body.messages[0].content).toContain("只输出简体中文译文");
+  });
+
+  it("Codex 翻译快路径使用 mini 模型", () => {
+    const fastConfig = resolveFastTranslationConfig(codexBridgeConfig);
+    expect(fastConfig.model).toBe("gpt-5.4-mini");
+    expect(resolveFastTranslationConfig(openaiConfig).model).toBe("gpt-4o-mini");
   });
 });
 
@@ -256,6 +278,16 @@ describe("parseTranslationJson", () => {
 
   it("空翻译抛错", () => {
     expect(() => parseTranslationJson('{"translation":""}')).toThrow("空翻译");
+  });
+});
+
+describe("parseTranslationText", () => {
+  it("兼容纯文本译文", () => {
+    expect(parseTranslationText("我已经开源了这个项目。")).toBe("我已经开源了这个项目。");
+  });
+
+  it("继续兼容旧 JSON 译文", () => {
+    expect(parseTranslationText('{"translation":"你好"}')).toBe("你好");
   });
 });
 

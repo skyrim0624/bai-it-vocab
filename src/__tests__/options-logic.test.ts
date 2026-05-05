@@ -187,7 +187,7 @@ describe("migrateLLMConfig", () => {
     };
     const result = migrateLLMConfig(oldStored);
     expect(result.activeProvider).toBe("codex");
-    expect(result.providers.codex.model).toBe("gpt-5.2");
+    expect(result.providers.codex.model).toBe("gpt-5.4-mini");
   });
 
   it("downgrades unsupported saved Codex model to the bridge default", () => {
@@ -200,7 +200,20 @@ describe("migrateLLMConfig", () => {
     };
     const result = migrateLLMConfig(oldStored);
     expect(result.activeProvider).toBe("codex");
-    expect(result.providers.codex.model).toBe("gpt-5.2");
+    expect(result.providers.codex.model).toBe("gpt-5.4-mini");
+  });
+
+  it("keeps the saved Codex mini model", () => {
+    const oldStored = {
+      activeProvider: "codex",
+      providers: {
+        ...DEFAULT_PROVIDERS,
+        codex: { apiKey: "bait-local-codex", model: "gpt-5.4-mini" },
+      },
+    };
+    const result = migrateLLMConfig(oldStored);
+    expect(result.activeProvider).toBe("codex");
+    expect(result.providers.codex.model).toBe("gpt-5.4-mini");
   });
 });
 
