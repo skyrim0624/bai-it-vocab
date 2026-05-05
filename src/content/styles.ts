@@ -588,4 +588,118 @@ body.enlearn-paused .enlearn-original-hidden { display: block !important; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* UI/UX Pro Max：网页内轻手绘阅读层 */
+.enlearn-word {
+  border-bottom: 2px solid rgba(255, 138, 163, 0.78);
+  border-radius: 3px;
+  text-decoration: none;
+}
+
+.enlearn-word:hover {
+  background: rgba(255, 209, 102, 0.32);
+  border-bottom-color: #b8325f;
+}
+
+.enlearn-separator {
+  color: rgba(184, 50, 95, 0.42);
+}
+
+.enlearn-trigger {
+  background: rgba(255, 247, 232, 0.86);
+  border: 1.5px solid rgba(45, 42, 50, 0.38);
+  color: #b8325f;
+  box-shadow: 2px 2px 0 rgba(45, 42, 50, 0.10);
+}
+
+.enlearn-trigger:hover {
+  background: #fff3d7;
+  color: #202233;
+}
+
+.enlearn-tooltip {
+  background: #fffdf6;
+  color: #202233;
+  border: 2px solid #2d2a32;
+  border-radius: 8px;
+  box-shadow: 5px 5px 0 rgba(45, 42, 50, 0.16), 0 16px 36px rgba(45, 42, 50, 0.12);
+  font-family: "Comic Sans MS", "Bradley Hand", "Chalkboard SE", "Marker Felt", ui-rounded, system-ui, sans-serif;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.enlearn-tooltip-word {
+  color: #b8325f;
+}
+
+.enlearn-tooltip-phonetic,
+.enlearn-tooltip-def,
+.enlearn-tooltip-def.is-loading {
+  color: #5f6472;
+}
+
+.enlearn-tooltip-btn {
+  background: #ffffff;
+  border: 2px solid #2d2a32;
+  border-radius: 8px;
+  color: #202233;
+  box-shadow: 2px 2px 0 rgba(45, 42, 50, 0.12);
+}
+
+.enlearn-tooltip-btn:hover {
+  background: #dff3ff;
+  border-color: #2d2a32;
+  color: #202233;
+  box-shadow: 3px 3px 0 rgba(45, 42, 50, 0.12);
+}
+
+.enlearn-tooltip-add {
+  background: #ffd166;
+  border-color: #2d2a32;
+  color: #202233;
+}
+
+.enlearn-tooltip-add:hover,
+.enlearn-tooltip-btn.is-done {
+  background: #73c79b;
+  border-color: #2d2a32;
+  color: #202233;
+}
+
+.enlearn-translate-btn {
+  border: 2px solid #2d2a32;
+  border-radius: 8px;
+  background: #fffdf6;
+  color: #202233;
+  box-shadow: 3px 3px 0 rgba(45, 42, 50, 0.12);
+  font-family: "Comic Sans MS", "Bradley Hand", "Chalkboard SE", "Marker Felt", ui-rounded, system-ui, sans-serif;
+}
+
+.enlearn-translate-btn:hover {
+  background: #fff3d7;
+  border-color: #2d2a32;
+  color: #202233;
+}
+
+.enlearn-translate-btn.is-active {
+  background: #dff3ff;
+  border-color: #2d2a32;
+  color: #202233;
+}
+
+.enlearn-translate-result {
+  border: 2px solid #2d2a32;
+  border-left-width: 5px;
+  border-radius: 8px;
+  background: #fffdf6;
+  color: #202233;
+  box-shadow: 4px 4px 0 rgba(45, 42, 50, 0.10);
+  font-family: "Comic Sans MS", "Bradley Hand", "Chalkboard SE", "Marker Felt", ui-rounded, system-ui, sans-serif;
+}
+
+.enlearn-translate-result.is-error {
+  border-color: #9f1d35;
+  background: #fff1f3;
+  color: #9f1d35;
+}
 `;
