@@ -933,6 +933,8 @@
       border-radius: 8px;
       box-shadow: 4px 4px 0 rgba(45, 42, 50, 0.16);
       letter-spacing: 0;
+      justify-content: flex-start;
+      text-align: left;
     }
 
     .action-btn:hover {
@@ -943,6 +945,43 @@
       background: rgba(255, 255, 255, 0.42);
       border: 2px solid rgba(45, 42, 50, 0.24);
       border-radius: 8px;
+    }
+
+    .action-copy {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .action-sub,
+    .feature-desc {
+      color: var(--popup-pencil);
+      font-size: 11px;
+      font-weight: 750;
+      line-height: 1.25;
+    }
+
+    .action-sub .domain {
+      display: block;
+      max-width: 205px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .feature-state {
+      flex: 0 0 auto;
+      min-width: 46px;
+      padding: 5px 8px;
+      border: 2px solid var(--popup-line);
+      border-radius: 999px;
+      background: #ffffff;
+      color: var(--popup-ink);
+      font-size: 12px;
+      font-weight: 900;
+      text-align: center;
+      box-shadow: 2px 2px 0 rgba(45, 42, 50, 0.10);
     }
 
     .action-btn.is-on {
@@ -966,6 +1005,85 @@
       color: var(--popup-ink);
       background: #ffa6b8;
       border-color: var(--popup-line);
+    }
+
+    .feature-list {
+      display: grid;
+      gap: 10px;
+      padding: 0 18px 6px;
+    }
+
+    .feature-button {
+      width: 100%;
+      min-height: 66px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 13px;
+      border: 2px solid var(--popup-line);
+      border-radius: 8px;
+      background: var(--popup-paper);
+      color: var(--popup-ink);
+      box-shadow: 4px 4px 0 rgba(45, 42, 50, 0.12);
+      cursor: pointer;
+      text-align: left;
+      transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+    }
+
+    .feature-button:hover {
+      transform: translate(-1px, -1px) rotate(0.35deg);
+      box-shadow: 5px 5px 0 rgba(45, 42, 50, 0.13);
+    }
+
+    .feature-button.is-on {
+      background: #e7f8ee;
+    }
+
+    .feature-button.is-off {
+      background: #fffdf6;
+    }
+
+    .feature-button.is-off .feature-state {
+      background: #ffe6ec;
+    }
+
+    .feature-button.is-disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: 2px 2px 0 rgba(45, 42, 50, 0.08);
+    }
+
+    .feature-button.is-disabled:hover {
+      transform: none;
+    }
+
+    .feature-doodle {
+      display: inline-grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+      border: 2px solid var(--popup-line);
+      border-radius: 50%;
+      background: var(--popup-yellow);
+      color: var(--popup-ink);
+      font-size: 15px;
+      font-weight: 900;
+      box-shadow: 2px 2px 0 rgba(45, 42, 50, 0.12);
+    }
+
+    .feature-copy {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .feature-title {
+      color: var(--popup-ink);
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1.15;
     }
 
     .site-row,
@@ -1122,7 +1240,7 @@
     <span class="site-name" id="site-name">—</span>
   </div>
 
-  <!-- 主操作按钮 -->
+  <!-- 当前网站开关 -->
   <div class="action-area">
     <button class="action-btn is-on" id="action-btn" type="button" aria-live="polite">
       <span class="action-mark" aria-hidden="true">
@@ -1133,21 +1251,33 @@
           <path d="m16 15 2 2 4-5" />
         </svg>
       </span>
-      <span id="action-text">显示原文</span>
+      <span class="action-copy">
+        <span id="action-text">此网站开启掰 it</span>
+        <span class="action-sub"><span class="domain" id="site-domain">—</span></span>
+      </span>
+      <span class="feature-state" id="site-state">开启</span>
     </button>
   </div>
 
-  <!-- 站点级开关 -->
-  <div class="site-row">
-    <div class="site-copy">
-      <span class="site-row-title">当前网站</span>
-      <span class="site-row-label"><span class="domain" id="site-domain">—</span></span>
-    </div>
-    <label class="toggle-sm" aria-label="切换当前网站启用状态">
-      <input type="checkbox" id="site-toggle" checked>
-      <div class="t-track"></div>
-      <div class="t-thumb"></div>
-    </label>
+  <!-- 功能开关 -->
+  <div class="feature-list" aria-label="当前网站功能开关">
+    <button class="feature-button is-on" id="chunk-toggle" type="button" aria-pressed="true">
+      <span class="feature-doodle" aria-hidden="true">句</span>
+      <span class="feature-copy">
+        <span class="feature-title">掰句子</span>
+        <span class="feature-desc">遇到英文文本自动掰开</span>
+      </span>
+      <span class="feature-state" id="chunk-state">开启</span>
+    </button>
+
+    <button class="feature-button is-off" id="word-toggle" type="button" aria-pressed="false">
+      <span class="feature-doodle" aria-hidden="true">词</span>
+      <span class="feature-copy">
+        <span class="feature-title">单词翻译</span>
+        <span class="feature-desc">点词查释义、发音和加入生词本</span>
+      </span>
+      <span class="feature-state" id="word-state">关闭</span>
+    </button>
   </div>
 
   <!-- 设置内容 -->

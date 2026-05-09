@@ -32,6 +32,8 @@ export interface BaitConfig {
   chunkGranularity: "coarse" | "medium" | "fine"; // 拆分颗粒度
   chunkIntensity: number; // 1-5，渲染力度
   disabledSites: string[]; // hostname 黑名单
+  disabledChunkSites: string[]; // 不自动掰句的 hostname，默认掰句开启
+  wordTranslationEnabledSites: string[]; // 开启点词/查词的 hostname，默认关闭
 }
 
 export const DEFAULT_PROVIDERS: Record<ProviderKey, ProviderConfig> = {
@@ -53,6 +55,8 @@ export const DEFAULT_CONFIG: BaitConfig = {
   chunkGranularity: "fine",
   chunkIntensity: 5,
   disabledSites: [],
+  disabledChunkSites: [],
+  wordTranslationEnabledSites: [],
 };
 
 /** Provider 元数据（format / baseUrl 是常量，从 provider 名推导） */
@@ -138,6 +142,7 @@ export type Message =
   | { type: "updateConfig"; config: Partial<BaitConfig> }
   | { type: "checkActive" }
   | { type: "toggleSite"; hostname: string }
+  | { type: "setSiteFeature"; hostname: string; feature: "site" | "chunk" | "wordTranslation"; enabled: boolean }
   | { type: "pauseTab"; tabId: number }
   | { type: "resumeTab"; tabId: number }
   | { type: "getTabState"; tabId: number; hostname: string }
@@ -181,6 +186,12 @@ export type BackgroundMessage =
   | { type: "deactivate" }
   | { type: "pause" }
   | { type: "resume" }
+  | {
+      type: "featureState";
+      siteEnabled: boolean;
+      chunkEnabled: boolean;
+      wordTranslationEnabled: boolean;
+    }
   | { type: "sentenceAnalyzed"; pendingId: string; learningRecord: LearningRecord }
   | { type: "sentenceAnalysisFailed"; pendingId: string; error: string };
 

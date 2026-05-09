@@ -30,6 +30,8 @@ import { ENLEARN_STYLES } from "./styles.ts";
 let config: BaitConfig = { ...DEFAULT_CONFIG };
 let isActive = false;
 let isPaused = false;
+let chunkEnabled = true;
+let wordTranslationEnabled = false;
 let processedElements = new WeakSet<Element>();
 const pendingElements = new Map<Element, string>();
 let intersectionObserver: IntersectionObserver | null = null;
@@ -92,6 +94,15 @@ function scheduleHideTooltip(): void {
   }, 150);
 }
 
+function hideTooltip(): void {
+  if (tooltipHideTimer) {
+    clearTimeout(tooltipHideTimer);
+    tooltipHideTimer = null;
+  }
+  if (tooltipEl) tooltipEl.style.display = "none";
+  currentTooltipData = null;
+}
+
 async function onTooltipClick(e: MouseEvent): Promise<void> {
   const btn = (e.target as Element).closest?.(".enlearn-tooltip-btn") as HTMLElement | null;
   if (!btn || !currentTooltipData) return;
@@ -139,12 +150,11 @@ async function onTooltipClick(e: MouseEvent): Promise<void> {
     }
   });
 
-  // 隐藏浮窗
-  if (tooltipEl) tooltipEl.style.display = "none";
-  currentTooltipData = null;
+  hideTooltip();
 }
 
 function onWordHover(e: MouseEvent): void {
+  if (!isActive || !wordTranslationEnabled) return;
   const wordEl = (e.target as Element).closest?.(".enlearn-word") as HTMLElement | null;
   if (!wordEl || !tooltipEl) return;
 
@@ -364,7 +374,7 @@ function pickSentenceContaining(text: string, word: string): string {
 }
 
 function onDocumentWordClick(e: MouseEvent): void {
-  if (!isActive || isPaused || e.defaultPrevented) return;
+  if (!isActive || !wordTranslationEnabled || e.defaultPrevented) return;
   const target = e.target as Element | null;
   if (!target || shouldIgnoreWordClick(target)) return;
   if (target.closest("a[href]") && !target.closest(".enlearn-word")) return;
@@ -460,17 +470,72 @@ async function init(): Promise<void> {
 
   config = await sendMessage({ type: "getConfig" }) as BaitConfig;
 
-  const response = await sendMessage({ type: "checkActive" }) as { active: boolean };
+  const response = await sendMessage({ type: "checkActive" }) as {
+    active: boolean;
+    chunkEnabled?: boolean;
+    wordTranslationEnabled?: boolean;
+  };
   if (response.active) {
-    activate();
+    applyFeatureState({
+      siteEnabled: response.active,
+      chunkEnabled: response.chunkEnabled ?? true,
+      wordTranslationEnabled: response.wordTranslationEnabled ?? false,
+    });
   }
 
   chrome.runtime.onMessage.addListener((message: BackgroundMessage) => {
-    if (message.type === "activate") activate();
+    if (message.type === "featureState") applyFeatureState(message);
+    else if (message.type === "activate") activate();
     else if (message.type === "deactivate") deactivate();
     else if (message.type === "pause") pauseProcessing();
     else if (message.type === "resume") resumeProcessing();
   });
+}
+
+function applyFeatureState(state: {
+  siteEnabled: boolean;
+  chunkEnabled: boolean;
+  wordTranslationEnabled: boolean;
+}): void {
+  const previousChunkEnabled = chunkEnabled;
+  const previousWordTranslationEnabled = wordTranslationEnabled;
+
+  chunkEnabled = state.chunkEnabled;
+  wordTranslationEnabled = state.wordTranslationEnabled;
+
+  if (!state.siteEnabled) {
+    deactivate();
+    return;
+  }
+
+  if (!isActive) {
+    activate();
+    return;
+  }
+
+  if (previousChunkEnabled !== chunkEnabled) {
+    if (chunkEnabled) {
+      resumeProcessing();
+    } else {
+      pauseProcessing();
+      attachTranslateButtons();
+    }
+  }
+
+  if (previousWordTranslationEnabled !== wordTranslationEnabled) {
+    if (wordTranslationEnabled) {
+      ensureVocabDataLoaded()
+        .then(() => {
+          if (isActive && chunkEnabled) reprocessPage();
+        })
+        .catch(() => {});
+    } else {
+      hideTooltip();
+      if (chunkEnabled) reprocessPage();
+    }
+  }
+
+  attachTranslateButtons();
 }
 
 // ========== 激活 ==========
@@ -478,20 +543,23 @@ async function init(): Promise<void> {
 function activate(): void {
   if (isActive) return;
   isActive = true;
+  isPaused = !chunkEnabled;
 
   attachTranslateButtons();
   setupMutationObserver();
 
-  ensureVocabDataLoaded()
-    .then(() => {
-      if (!isActive || isPaused) return;
-      setupIntersectionObserver();
-      scanPage();
-    })
-    .catch(() => {
-      // 词库资源加载失败时，仍保留 X 帖子翻译能力。
-      attachTranslateButtons();
-    });
+  if (wordTranslationEnabled) {
+    ensureVocabDataLoaded()
+      .then(() => {
+        if (isActive && chunkEnabled) reprocessPage();
+      })
+      .catch(() => {});
+  }
+
+  if (chunkEnabled) {
+    setupIntersectionObserver();
+    scanPage();
+  }
 
   chrome.storage.onChanged.addListener(onStorageChanged);
 }
@@ -501,6 +569,7 @@ function activate(): void {
 function deactivate(): void {
   if (!isActive) return;
   isActive = false;
+  isPaused = false;
 
   intersectionObserver?.disconnect();
   intersectionObserver = null;
@@ -519,6 +588,7 @@ function deactivate(): void {
   pendingElements.clear();
   queuedElements = new WeakSet<Element>();
 
+  hideTooltip();
   restoreProcessedElements();
 
   // 移除手动触发按钮
@@ -537,8 +607,9 @@ function deactivate(): void {
 function pauseProcessing(): void {
   if (!isActive || isPaused) return;
   isPaused = true;
-  mutationObserver?.disconnect();
+  chunkEnabled = false;
   intersectionObserver?.disconnect();
+  intersectionObserver = null;
   processQueue.length = 0;
   queuedElements = new WeakSet<Element>();
   if (processTimer) {
@@ -567,6 +638,7 @@ function pauseProcessing(): void {
 function resumeProcessing(): void {
   if (!isActive || !isPaused) return;
   isPaused = false;
+  chunkEnabled = true;
 
   // 恢复：重新隐藏原文 + 显示分块
   document.querySelectorAll(".enlearn-was-hidden").forEach(el => {
@@ -636,7 +708,7 @@ function onStorageChanged(changes: { [key: string]: chrome.storage.StorageChange
   }
 
   // 配置变更后用新配置重新处理页面
-  if (needReprocess && isActive && !isPaused) {
+  if (needReprocess && isActive && chunkEnabled) {
     reprocessPage();
   }
 }
@@ -1021,6 +1093,10 @@ function saveSentenceQuiet(
   }).catch(() => {});
 }
 
+function stripWordAnnotationsWhenDisabled(result: ChunkResult): ChunkResult {
+  return wordTranslationEnabled ? result : { ...result, newWords: [] };
+}
+
 // ========== DOM 手术：含链接元素的原地拆分 ==========
 
 /**
@@ -1221,7 +1297,9 @@ function processElementWithLinks(el: Element, text: string): void {
   }
 
   // 6. Vocab 标注：在克隆中的非 URL 文本节点上标记生词
-  const vocabAnnotations = isLoaded() ? annotateWords(text, knownWords) : [];
+  const vocabAnnotations = wordTranslationEnabled && isLoaded()
+    ? annotateWords(text, knownWords)
+    : [];
   if (vocabAnnotations.length > 0) {
     applyVocabToClone(clone, vocabAnnotations);
   }
@@ -1396,12 +1474,12 @@ function findTextLeafElements(): Element[] {
 }
 
 function scanPage(): void {
-  if (!isActive || isPaused) return;
+  if (!isActive) return;
 
   // NOTE: 帖子翻译只依赖页面文本和后台 LLM，不应该被离线词库加载状态卡住。
   attachTranslateButtons();
 
-  if (!isLoaded()) return;
+  if (isPaused || !chunkEnabled) return;
 
   // 第一轮：白名单精确匹配
   const candidates = document.querySelectorAll(DOM_SELECTORS);
@@ -1475,7 +1553,7 @@ function processTextElement(el: Element, text: string): void {
   }
 
   // 生词标注（不管是否拆分）
-  const vocabAnnotations = isLoaded()
+  const vocabAnnotations = wordTranslationEnabled && isLoaded()
     ? annotateWords(text, knownWords)
     : [];
 
@@ -1552,7 +1630,7 @@ function addManualTrigger(el: Element, text: string): void {
         // 无 API → 本地强制拆分（最低阈值 + 最细颗粒度）
         const scanResult = scanSplit(text, "short", "fine");
         if (scanResult.chunks.length > 1) {
-          const vocabAnnotations = isLoaded()
+          const vocabAnnotations = wordTranslationEnabled && isLoaded()
             ? annotateWords(text, knownWords)
             : [];
           result = {
@@ -1565,15 +1643,16 @@ function addManualTrigger(el: Element, text: string): void {
       }
 
       if (result) {
-        const chunkedEl = createChunkedElement(result, config.chunkIntensity);
+        const renderResult = stripWordAnnotationsWhenDisabled(result);
+        const chunkedEl = createChunkedElement(renderResult, config.chunkIntensity);
         if (chunkedEl) {
           copyFontStyles(el, chunkedEl);
           insertChunkedElement(el, chunkedEl);
           btn.remove();
 
           // 手动触发 → 标记 manual: true
-          const newWordsList = result.newWords?.map(w => w.word) ?? [];
-          saveSentenceQuiet(text, true, newWordsList, result.newWords ?? []);
+          const newWordsList = renderResult.newWords?.map(w => w.word) ?? [];
+          saveSentenceQuiet(text, true, newWordsList, renderResult.newWords ?? []);
         }
       } else {
         // 拆不动 → 移除按钮
@@ -1612,6 +1691,7 @@ function setupIntersectionObserver(): void {
 // ========== 批量处理 ==========
 
 function processVisibleElements(elements: Element[]): void {
+  if (!isActive || !chunkEnabled) return;
   for (const el of elements) {
     if (queuedElements.has(el)) continue;
     if (processQueue.length >= MAX_QUEUE_SIZE) break;
@@ -1623,7 +1703,7 @@ function processVisibleElements(elements: Element[]): void {
 }
 
 async function flushProcessQueue(): Promise<void> {
-  if (processQueue.length === 0 || !isActive) return;
+  if (processQueue.length === 0 || !isActive || !chunkEnabled) return;
 
   const batch = processQueue.splice(0, 5);
   const sentences: string[] = [];
@@ -1665,7 +1745,8 @@ async function flushProcessQueue(): Promise<void> {
           continue;
         }
 
-        const chunkedEl = createChunkedElement(result, config.chunkIntensity);
+        const renderResult = stripWordAnnotationsWhenDisabled(result);
+        const chunkedEl = createChunkedElement(renderResult, config.chunkIntensity);
         if (!chunkedEl) continue;
 
         copyFontStyles(el, chunkedEl);
@@ -1692,7 +1773,7 @@ async function flushProcessQueue(): Promise<void> {
 // ========== MutationObserver ==========
 
 function scheduleScanPage(delay = 300): void {
-  if (!isActive || isPaused) return;
+  if (!isActive) return;
   if (mutationScanTimer) clearTimeout(mutationScanTimer);
   mutationScanTimer = setTimeout(() => {
     mutationScanTimer = null;

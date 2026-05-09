@@ -2,10 +2,10 @@
  * Popup — 弹出窗口
  *
  * 职责：
- * 1. 大按钮：当前页面开关（显示原文 / 拆分显示）
- * 2. 站点级 toggle：控制整个域名是否启用
- * 3. 辅助力度滑杆（1-5），合并 chunkGranularity + sensitivity
- * 4. 显示方式分段选择器（详细/简洁/轻微）+ 实时预览
+ * 1. 当前网站总开关：控制掰 it 是否注入当前域名
+ * 2. 掰句子开关：站点级控制自动拆句，默认开启
+ * 3. 单词翻译开关：站点级控制点词查释义和生词标注，默认关闭
+ * 4. 掰句显示设置：辅助力度 + 显示方式
  */
 
 import type { Message, BaitConfig } from "../shared/types.ts";
@@ -18,7 +18,11 @@ const siteName = $("site-name");
 const siteDomain = $("site-domain");
 const actionBtn = $<HTMLButtonElement>("action-btn");
 const actionText = $("action-text");
-const siteToggle = $<HTMLInputElement>("site-toggle");
+const siteState = $("site-state");
+const chunkBtn = $<HTMLButtonElement>("chunk-toggle");
+const chunkState = $("chunk-state");
+const wordBtn = $<HTMLButtonElement>("word-toggle");
+const wordState = $("word-state");
 const content = $("content");
 const sliderContainer = $("assist-slider");
 const sliderFill = $("slider-fill");
@@ -76,6 +80,14 @@ const DISPLAY_MODES: Record<string, { desc: string; intensity: number; html: str
   },
 };
 
+type SiteFeature = "site" | "chunk" | "wordTranslation";
+
+interface SiteFeatureState {
+  siteEnabled: boolean;
+  chunkEnabled: boolean;
+  wordTranslationEnabled: boolean;
+}
+
 // ========== 滑杆 ==========
 
 const SLIDER_MIN = 1;
@@ -100,8 +112,9 @@ function getSliderLevelFromX(clientX: number): number {
 
 let currentTab: chrome.tabs.Tab | null = null;
 let currentHostname = "";
-let isChunking = false; // 大按钮状态
-let siteEnabled = true; // 站点级开关
+let siteEnabled = true;
+let chunkEnabled = true;
+let wordTranslationEnabled = false;
 
 // ========== 通信 ==========
 
@@ -130,39 +143,46 @@ function intensityToMode(intensity: number): string {
 
 // ========== UI 更新 ==========
 
-function updateActionButton(): void {
-  if (isChunking) {
-    actionBtn.className = "action-btn is-on";
-    actionText.textContent = "显示原文";
-    actionBtn.setAttribute("aria-pressed", "true");
-  } else {
-    actionBtn.className = "action-btn is-off";
-    actionText.textContent = "掰it";
-    actionBtn.setAttribute("aria-pressed", "false");
-  }
-
-  // 站点禁用时，大按钮灰掉不可点
-  if (!siteEnabled) {
-    actionBtn.style.opacity = "0.4";
-    actionBtn.style.pointerEvents = "none";
-    actionBtn.disabled = true;
-  } else {
-    actionBtn.style.opacity = "1";
-    actionBtn.style.pointerEvents = "auto";
-    actionBtn.disabled = false;
-  }
+function setFeatureButton(
+  button: HTMLButtonElement,
+  stateEl: HTMLElement,
+  enabled: boolean,
+  disabled: boolean
+): void {
+  button.classList.toggle("is-on", enabled);
+  button.classList.toggle("is-off", !enabled);
+  button.classList.toggle("is-disabled", disabled);
+  button.disabled = disabled;
+  button.setAttribute("aria-pressed", String(enabled));
+  stateEl.textContent = enabled ? "开启" : "关闭";
 }
 
-function updateContentArea(): void {
-  // 站点禁用或拆分关闭时，设置区域变淡
-  content.classList.toggle("disabled", !siteEnabled || !isChunking);
+function applyState(state: SiteFeatureState): void {
+  siteEnabled = state.siteEnabled;
+  chunkEnabled = state.chunkEnabled;
+  wordTranslationEnabled = state.wordTranslationEnabled;
+  updateControls();
+}
+
+function updateControls(): void {
+  const hasSite = Boolean(currentHostname);
+
+  actionBtn.className = `action-btn ${siteEnabled ? "is-on" : "is-off"}`;
+  actionBtn.disabled = !hasSite;
+  actionBtn.setAttribute("aria-pressed", String(siteEnabled));
+  actionText.textContent = siteEnabled ? "此网站开启掰 it" : "此网站关闭掰 it";
+  siteState.textContent = siteEnabled ? "开启" : "关闭";
+
+  setFeatureButton(chunkBtn, chunkState, chunkEnabled, !hasSite || !siteEnabled);
+  setFeatureButton(wordBtn, wordState, wordTranslationEnabled, !hasSite || !siteEnabled);
+
+  content.classList.toggle("disabled", !siteEnabled || !chunkEnabled);
 }
 
 function setDisplayMode(modeKey: string): void {
   const mode = DISPLAY_MODES[modeKey];
   if (!mode) return;
 
-  // 更新分段按钮 + 定位 pill
   const btns = segControl.querySelectorAll(".seg-btn");
   let activeIndex = 0;
   btns.forEach((btn, i) => {
@@ -173,16 +193,27 @@ function setDisplayMode(modeKey: string): void {
   });
   segPill.style.transform = `translateX(${activeIndex * 100}%)`;
 
-  // 更新描述和预览
   modeDesc.textContent = mode.desc;
   preview.className = "display-preview mode-" + modeKey;
   preview.innerHTML = mode.html;
 }
 
+async function setSiteFeature(feature: SiteFeature, enabled: boolean): Promise<void> {
+  if (!currentHostname) return;
+
+  const result = (await sendMessage({
+    type: "setSiteFeature",
+    hostname: currentHostname,
+    feature,
+    enabled,
+  })) as SiteFeatureState;
+
+  applyState(result);
+}
+
 // ========== 初始化 ==========
 
 async function init(): Promise<void> {
-  // 获取当前 tab
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   currentTab = tab ?? null;
 
@@ -194,43 +225,36 @@ async function init(): Promise<void> {
     }
   }
 
-  // 显示站点名
   siteName.textContent = currentHostname || "—";
   siteDomain.textContent = currentHostname || "—";
 
-  // 获取当前状态
   if (currentTab?.id && currentHostname) {
     const result = (await sendMessage({
       type: "getTabState",
       tabId: currentTab.id,
       hostname: currentHostname,
-    })) as { state: "active" | "paused" | "disabled" };
+    })) as SiteFeatureState & { state: "active" | "paused" | "disabled" };
 
-    siteEnabled = result.state !== "disabled";
-    isChunking = result.state === "active";
+    applyState({
+      siteEnabled: result.siteEnabled ?? result.state !== "disabled",
+      chunkEnabled: result.chunkEnabled ?? result.state === "active",
+      wordTranslationEnabled: result.wordTranslationEnabled ?? false,
+    });
+  } else {
+    applyState({ siteEnabled: false, chunkEnabled: false, wordTranslationEnabled: false });
   }
 
-  // 获取配置
   const config = (await sendMessage({ type: "getConfig" })) as BaitConfig;
 
-  // 设置站点 toggle
-  siteToggle.checked = siteEnabled;
-
-  // 设置辅助力度滑杆
   const assistLevel = configToAssistLevel(config);
   currentLevel = assistLevel;
   updateSliderVisuals(currentLevel);
   assistHint.textContent = ASSIST_HINTS[assistLevel];
 
-  // 设置显示方式
   const currentMode = intensityToMode(config.chunkIntensity);
   setDisplayMode(currentMode);
+  updateControls();
 
-  // 更新 UI 状态
-  updateActionButton();
-  updateContentArea();
-
-  // 初始设置完成后开启动画（避免加载时闪动）
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       sliderContainer.classList.remove("no-transition");
@@ -240,45 +264,18 @@ async function init(): Promise<void> {
 
   // ===== 事件绑定 =====
 
-  // 大按钮：切换当前页面拆分
-  actionBtn.addEventListener("click", async () => {
-    if (!siteEnabled || !currentTab?.id) return;
-
-    isChunking = !isChunking;
-
-    if (isChunking) {
-      await sendMessage({ type: "resumeTab", tabId: currentTab.id });
-    } else {
-      await sendMessage({ type: "pauseTab", tabId: currentTab.id });
-    }
-
-    updateActionButton();
-    updateContentArea();
+  actionBtn.addEventListener("click", () => {
+    setSiteFeature("site", !siteEnabled).catch(() => {});
   });
 
-  // 站点级 toggle
-  siteToggle.addEventListener("change", async () => {
-    if (!currentHostname) return;
-
-    const result = (await sendMessage({
-      type: "toggleSite",
-      hostname: currentHostname,
-    })) as { enabled: boolean };
-
-    siteEnabled = result.enabled;
-
-    if (!siteEnabled) {
-      isChunking = false;
-    } else {
-      // 站点重新启用时，恢复为活跃
-      isChunking = true;
-    }
-
-    updateActionButton();
-    updateContentArea();
+  chunkBtn.addEventListener("click", () => {
+    setSiteFeature("chunk", !chunkEnabled).catch(() => {});
   });
 
-  // 辅助力度滑杆 — 点击 & 拖拽
+  wordBtn.addEventListener("click", () => {
+    setSiteFeature("wordTranslation", !wordTranslationEnabled).catch(() => {});
+  });
+
   let isDragging = false;
 
   sliderContainer.addEventListener("pointerdown", (e) => {
@@ -305,8 +302,7 @@ async function init(): Promise<void> {
   sliderContainer.addEventListener("pointerup", async () => {
     if (!isDragging) return;
     isDragging = false;
-    const mapping = ASSIST_TO_CONFIG[currentLevel];
-    await sendMessage({ type: "updateConfig", config: mapping });
+    await sendMessage({ type: "updateConfig", config: ASSIST_TO_CONFIG[currentLevel] });
   });
 
   sliderContainer.addEventListener("keydown", async (e) => {
@@ -321,7 +317,6 @@ async function init(): Promise<void> {
     await sendMessage({ type: "updateConfig", config: ASSIST_TO_CONFIG[currentLevel] });
   });
 
-  // 显示方式分段选择器
   segControl.addEventListener("click", async (e) => {
     const btn = (e.target as HTMLElement).closest(".seg-btn") as HTMLElement | null;
     if (!btn || btn.classList.contains("active")) return;
@@ -336,7 +331,6 @@ async function init(): Promise<void> {
     });
   });
 
-  // 更多设置：打开管理页
   linkOptions.addEventListener("click", (e) => {
     e.preventDefault();
     chrome.runtime.openOptionsPage();

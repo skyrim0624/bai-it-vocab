@@ -35,6 +35,12 @@ async function getConfig(): Promise<BaitConfig> {
   if (!Array.isArray(config.disabledSites)) {
     config.disabledSites = [];
   }
+  if (!Array.isArray(config.disabledChunkSites)) {
+    config.disabledChunkSites = [];
+  }
+  if (!Array.isArray(config.wordTranslationEnabledSites)) {
+    config.wordTranslationEnabledSites = [];
+  }
   if (!config.chunkGranularity) {
     config.chunkGranularity = "fine";
   }
@@ -158,6 +164,40 @@ async function isSiteEnabled(hostname: string): Promise<boolean> {
   return !config.disabledSites.includes(hostname);
 }
 
+interface SiteFeatureState {
+  siteEnabled: boolean;
+  chunkEnabled: boolean;
+  wordTranslationEnabled: boolean;
+}
+
+function includesHostname(list: string[], hostname: string): boolean {
+  return list.includes(hostname);
+}
+
+function setHostnameEnabled(
+  list: string[],
+  hostname: string,
+  enabled: boolean,
+  listMeansEnabled: boolean
+): string[] {
+  const next = list.filter((item) => item !== hostname);
+  const shouldInclude = listMeansEnabled ? enabled : !enabled;
+  if (shouldInclude) next.push(hostname);
+  return next;
+}
+
+function getSiteFeatureStateFromConfig(config: BaitConfig, hostname: string): SiteFeatureState {
+  const siteEnabled = hostname ? !includesHostname(config.disabledSites, hostname) : false;
+  const chunkEnabled = siteEnabled && !includesHostname(config.disabledChunkSites, hostname);
+  const wordTranslationEnabled = siteEnabled && includesHostname(config.wordTranslationEnabledSites, hostname);
+  return { siteEnabled, chunkEnabled, wordTranslationEnabled };
+}
+
+async function getSiteFeatureState(hostname: string): Promise<SiteFeatureState> {
+  const config = await getConfig();
+  return getSiteFeatureStateFromConfig(config, hostname);
+}
+
 async function toggleSite(hostname: string): Promise<{ enabled: boolean; disabledSites: string[] }> {
   const config = await getConfig();
   const index = config.disabledSites.indexOf(hostname);
@@ -173,6 +213,57 @@ async function toggleSite(hostname: string): Promise<{ enabled: boolean; disable
 
   await chrome.storage.sync.set({ disabledSites: config.disabledSites });
   return { enabled, disabledSites: config.disabledSites };
+}
+
+async function setSiteFeature(
+  hostname: string,
+  feature: "site" | "chunk" | "wordTranslation",
+  enabled: boolean
+): Promise<SiteFeatureState> {
+  const config = await getConfig();
+
+  if (feature === "site") {
+    config.disabledSites = setHostnameEnabled(config.disabledSites, hostname, enabled, false);
+  } else if (feature === "chunk") {
+    config.disabledChunkSites = setHostnameEnabled(config.disabledChunkSites, hostname, enabled, false);
+  } else {
+    config.wordTranslationEnabledSites = setHostnameEnabled(
+      config.wordTranslationEnabledSites,
+      hostname,
+      enabled,
+      true
+    );
+  }
+
+  await chrome.storage.sync.set({
+    disabledSites: config.disabledSites,
+    disabledChunkSites: config.disabledChunkSites,
+    wordTranslationEnabledSites: config.wordTranslationEnabledSites,
+  });
+
+  return getSiteFeatureStateFromConfig(config, hostname);
+}
+
+async function broadcastSiteFeatureState(hostname: string): Promise<SiteFeatureState> {
+  const state = await getSiteFeatureState(hostname);
+  const tabs = await chrome.tabs.query({});
+
+  for (const tab of tabs) {
+    if (!tab.id || !tab.url || getHostname(tab.url) !== hostname) continue;
+
+    if (state.chunkEnabled) {
+      pausedTabs.delete(tab.id);
+    } else {
+      pausedTabs.add(tab.id);
+    }
+    updateIcon(tab.id, state.siteEnabled);
+    chrome.tabs.sendMessage(tab.id, {
+      type: "featureState",
+      ...state,
+    }).catch(() => {});
+  }
+
+  return state;
 }
 
 /** 切换工具栏图标：带绿点(启用) / 无绿点(禁用) */
@@ -425,10 +516,14 @@ async function handleMessage(
       const tabId = sender.tab?.id;
       const tabUrl = sender.tab?.url ?? "";
       const hostname = getHostname(tabUrl);
-      const siteOn = hostname ? await isSiteEnabled(hostname) : false;
-      const active = siteOn && !(tabId && pausedTabs.has(tabId));
-      if (tabId) updateIcon(tabId, active);
-      return { active };
+      const state = hostname ? await getSiteFeatureState(hostname) : {
+        siteEnabled: false,
+        chunkEnabled: false,
+        wordTranslationEnabled: false,
+      };
+      const chunkEnabled = state.chunkEnabled && !(tabId && pausedTabs.has(tabId));
+      if (tabId) updateIcon(tabId, state.siteEnabled);
+      return { active: state.siteEnabled, ...state, chunkEnabled };
     }
 
     case "toggleSite": {
@@ -451,6 +546,13 @@ async function handleMessage(
       return { enabled: result.enabled, disabledSites: result.disabledSites };
     }
 
+    case "setSiteFeature": {
+      const { hostname, feature, enabled } = message;
+      const state = await setSiteFeature(hostname, feature, enabled);
+      const broadcastState = await broadcastSiteFeatureState(hostname);
+      return { ok: true, ...state, ...broadcastState };
+    }
+
     case "pauseTab": {
       const { tabId } = message;
       pausedTabs.add(tabId);
@@ -469,10 +571,14 @@ async function handleMessage(
 
     case "getTabState": {
       const { tabId, hostname } = message;
-      if (pausedTabs.has(tabId)) return { state: "paused" };
-      const enabled = hostname ? await isSiteEnabled(hostname) : false;
-      if (!enabled) return { state: "disabled" };
-      return { state: "active" };
+      const state = hostname ? await getSiteFeatureState(hostname) : {
+        siteEnabled: false,
+        chunkEnabled: false,
+        wordTranslationEnabled: false,
+      };
+      const chunkEnabled = state.chunkEnabled && !pausedTabs.has(tabId);
+      const legacyState = !state.siteEnabled ? "disabled" : chunkEnabled ? "active" : "paused";
+      return { state: legacyState, ...state, chunkEnabled };
     }
 
     case "hasApiKey": {
@@ -625,13 +731,12 @@ async function handleMessage(
 
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   try {
-    const tab = await chrome.tabs.get(activeInfo.tabId);
-    if (tab.url) {
-      const hostname = getHostname(tab.url);
-      const siteOn = hostname ? await isSiteEnabled(hostname) : false;
-      const active = siteOn && !pausedTabs.has(activeInfo.tabId);
-      updateIcon(activeInfo.tabId, active);
-    }
+      const tab = await chrome.tabs.get(activeInfo.tabId);
+      if (tab.url) {
+        const hostname = getHostname(tab.url);
+        const state = hostname ? await getSiteFeatureState(hostname) : null;
+        updateIcon(activeInfo.tabId, !!state?.siteEnabled);
+      }
   } catch {
     // tab 可能已关闭，静默忽略
   }
@@ -640,8 +745,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete" && tab.url) {
     const hostname = getHostname(tab.url);
-    const siteOn = hostname ? await isSiteEnabled(hostname) : false;
-    const active = siteOn && !pausedTabs.has(tabId);
-    updateIcon(tabId, active);
+    const state = hostname ? await getSiteFeatureState(hostname) : null;
+    updateIcon(tabId, !!state?.siteEnabled);
   }
 });
