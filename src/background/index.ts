@@ -32,6 +32,12 @@ async function getConfig(): Promise<BaitConfig> {
   const items = await chrome.storage.sync.get(keys);
   const config = items as unknown as BaitConfig;
 
+  if (!Array.isArray(config.enabledSites)) {
+    config.enabledSites = [];
+  }
+  if (!Array.isArray(config.enabledChunkSites)) {
+    config.enabledChunkSites = [];
+  }
   if (!Array.isArray(config.disabledSites)) {
     config.disabledSites = [];
   }
@@ -161,7 +167,7 @@ function getHostname(url: string): string {
 
 async function isSiteEnabled(hostname: string): Promise<boolean> {
   const config = await getConfig();
-  return !config.disabledSites.includes(hostname);
+  return config.enabledSites.includes(hostname) && !config.disabledSites.includes(hostname);
 }
 
 interface SiteFeatureState {
@@ -187,8 +193,12 @@ function setHostnameEnabled(
 }
 
 function getSiteFeatureStateFromConfig(config: BaitConfig, hostname: string): SiteFeatureState {
-  const siteEnabled = hostname ? !includesHostname(config.disabledSites, hostname) : false;
-  const chunkEnabled = siteEnabled && !includesHostname(config.disabledChunkSites, hostname);
+  const siteEnabled = hostname
+    ? includesHostname(config.enabledSites, hostname) && !includesHostname(config.disabledSites, hostname)
+    : false;
+  const chunkEnabled = siteEnabled &&
+    includesHostname(config.enabledChunkSites, hostname) &&
+    !includesHostname(config.disabledChunkSites, hostname);
   const wordTranslationEnabled = siteEnabled && includesHostname(config.wordTranslationEnabledSites, hostname);
   return { siteEnabled, chunkEnabled, wordTranslationEnabled };
 }
@@ -200,18 +210,14 @@ async function getSiteFeatureState(hostname: string): Promise<SiteFeatureState> 
 
 async function toggleSite(hostname: string): Promise<{ enabled: boolean; disabledSites: string[] }> {
   const config = await getConfig();
-  const index = config.disabledSites.indexOf(hostname);
-  let enabled: boolean;
+  const enabled = !config.enabledSites.includes(hostname);
+  config.enabledSites = setHostnameEnabled(config.enabledSites, hostname, enabled, true);
+  config.disabledSites = config.disabledSites.filter((item) => item !== hostname);
 
-  if (index >= 0) {
-    config.disabledSites.splice(index, 1);
-    enabled = true;
-  } else {
-    config.disabledSites.push(hostname);
-    enabled = false;
-  }
-
-  await chrome.storage.sync.set({ disabledSites: config.disabledSites });
+  await chrome.storage.sync.set({
+    enabledSites: config.enabledSites,
+    disabledSites: config.disabledSites,
+  });
   return { enabled, disabledSites: config.disabledSites };
 }
 
@@ -223,9 +229,11 @@ async function setSiteFeature(
   const config = await getConfig();
 
   if (feature === "site") {
-    config.disabledSites = setHostnameEnabled(config.disabledSites, hostname, enabled, false);
+    config.enabledSites = setHostnameEnabled(config.enabledSites, hostname, enabled, true);
+    config.disabledSites = config.disabledSites.filter((item) => item !== hostname);
   } else if (feature === "chunk") {
-    config.disabledChunkSites = setHostnameEnabled(config.disabledChunkSites, hostname, enabled, false);
+    config.enabledChunkSites = setHostnameEnabled(config.enabledChunkSites, hostname, enabled, true);
+    config.disabledChunkSites = config.disabledChunkSites.filter((item) => item !== hostname);
   } else {
     config.wordTranslationEnabledSites = setHostnameEnabled(
       config.wordTranslationEnabledSites,
@@ -236,6 +244,8 @@ async function setSiteFeature(
   }
 
   await chrome.storage.sync.set({
+    enabledSites: config.enabledSites,
+    enabledChunkSites: config.enabledChunkSites,
     disabledSites: config.disabledSites,
     disabledChunkSites: config.disabledChunkSites,
     wordTranslationEnabledSites: config.wordTranslationEnabledSites,

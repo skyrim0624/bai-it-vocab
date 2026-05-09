@@ -15,6 +15,8 @@ export function useConfig() {
         ...raw,
         llm: migrateLLMConfig(raw.llm),
       };
+      if (!Array.isArray(merged.enabledSites)) merged.enabledSites = [];
+      if (!Array.isArray(merged.enabledChunkSites)) merged.enabledChunkSites = [];
       if (!Array.isArray(merged.disabledSites)) merged.disabledSites = [];
       if (!Array.isArray(merged.disabledChunkSites)) merged.disabledChunkSites = [];
       if (!Array.isArray(merged.wordTranslationEnabledSites)) merged.wordTranslationEnabledSites = [];

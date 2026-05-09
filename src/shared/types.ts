@@ -31,8 +31,10 @@ export interface BaitConfig {
   scanThreshold: "short" | "medium" | "long"; // 扫读模式最小词数阈值
   chunkGranularity: "coarse" | "medium" | "fine"; // 拆分颗粒度
   chunkIntensity: number; // 1-5，渲染力度
-  disabledSites: string[]; // hostname 黑名单
-  disabledChunkSites: string[]; // 不自动掰句的 hostname，默认掰句开启
+  enabledSites: string[]; // hostname 白名单，默认不启动掰 it
+  enabledChunkSites: string[]; // 开启自动掰句的 hostname，默认关闭
+  disabledSites: string[]; // 旧版黑名单，保留用于兼容历史数据
+  disabledChunkSites: string[]; // 旧版掰句黑名单，保留用于兼容历史数据
   wordTranslationEnabledSites: string[]; // 开启点词/查词的 hostname，默认关闭
 }
 
@@ -54,6 +56,8 @@ export const DEFAULT_CONFIG: BaitConfig = {
   scanThreshold: "medium",
   chunkGranularity: "fine",
   chunkIntensity: 5,
+  enabledSites: [],
+  enabledChunkSites: [],
   disabledSites: [],
   disabledChunkSites: [],
   wordTranslationEnabledSites: [],
