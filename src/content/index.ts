@@ -78,9 +78,8 @@ function setupTooltip(): void {
   });
   tooltipEl.addEventListener("click", onTooltipClick);
 
-  document.addEventListener("mouseover", onWordHover);
-  document.addEventListener("mouseout", onWordLeave);
-  document.addEventListener("click", onDocumentWordClick, true);
+  document.addEventListener("dblclick", onDocumentWordDoubleClick, true);
+  document.addEventListener("click", onDocumentClickForTooltip, true);
   document.addEventListener("mouseover", onTriggerParentHover);
   document.addEventListener("mouseout", onTriggerParentLeave);
 }
@@ -151,30 +150,6 @@ async function onTooltipClick(e: MouseEvent): Promise<void> {
   });
 
   hideTooltip();
-}
-
-function onWordHover(e: MouseEvent): void {
-  if (!isActive || !wordTranslationEnabled) return;
-  const wordEl = (e.target as Element).closest?.(".enlearn-word") as HTMLElement | null;
-  if (!wordEl || !tooltipEl) return;
-
-  const def = wordEl.getAttribute("data-def");
-  if (!def) return;
-
-  // 取消待执行的隐藏动作
-  if (tooltipHideTimer) { clearTimeout(tooltipHideTimer); tooltipHideTimer = null; }
-
-  const word = (wordEl.dataset.word || wordEl.textContent || "").toLowerCase();
-  const sentence = getSentenceForElement(wordEl, word);
-  showWordTooltip({
-    word,
-    definition: def,
-    sentence,
-    sourceUrl: window.location.href,
-    rect: wordEl.getBoundingClientRect(),
-    loading: true,
-  });
-  refreshTooltipDefinition(word, def);
 }
 
 function showWordTooltip({
@@ -287,12 +262,6 @@ async function refreshTooltipDefinition(word: string, offlineDefinition: string)
   }
 }
 
-function onWordLeave(e: MouseEvent): void {
-  const word = (e.target as Element).closest?.(".enlearn-word");
-  if (!word || !tooltipEl) return;
-  scheduleHideTooltip();
-}
-
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
@@ -373,7 +342,14 @@ function pickSentenceContaining(text: string, word: string): string {
   return sentences.find((sentence) => pattern.test(sentence)) ?? normalized;
 }
 
-function onDocumentWordClick(e: MouseEvent): void {
+function onDocumentClickForTooltip(e: MouseEvent): void {
+  if (!tooltipEl || !currentTooltipData) return;
+  const target = e.target as Element | null;
+  if (target?.closest(".enlearn-tooltip")) return;
+  hideTooltip();
+}
+
+function onDocumentWordDoubleClick(e: MouseEvent): void {
   if (!isActive || !wordTranslationEnabled || e.defaultPrevented) return;
   const target = e.target as Element | null;
   if (!target || shouldIgnoreWordClick(target)) return;
@@ -382,7 +358,8 @@ function onDocumentWordClick(e: MouseEvent): void {
   const result = getWordRangeFromPoint(e.clientX, e.clientY);
   if (!result) return;
 
-  const definition = lookupWordDefinition(result.word) ?? "";
+  const wordEl = target.closest(".enlearn-word") as HTMLElement | null;
+  const definition = wordEl?.getAttribute("data-def") ?? lookupWordDefinition(result.word) ?? "";
   const rect = result.range.getBoundingClientRect();
   if (rect.width === 0 && rect.height === 0) return;
 
