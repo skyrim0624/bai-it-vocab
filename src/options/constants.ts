@@ -32,8 +32,8 @@ export const PROVIDER_INFO: Record<
   },
   codex: {
     label: "Codex",
-    models: ["gpt-5.4-mini", "gpt-5.2", "gpt-5.3-codex", "gpt-5.4"],
-    hint: "复用本机 Codex 登录态。点击翻译推荐 gpt-5.4-mini；深度分析可换更强模型。",
+    models: ["gpt-5.3-codex-spark", "gpt-5.4-mini", "gpt-5.2", "gpt-5.3-codex", "gpt-5.4"],
+    hint: "复用本机 Codex 登录态。点击翻译默认走 gpt-5.3-codex-spark；深度分析可换更强模型。",
   },
 };
 

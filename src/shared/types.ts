@@ -44,7 +44,7 @@ export const DEFAULT_PROVIDERS: Record<ProviderKey, ProviderConfig> = {
   deepseek: { apiKey: "", model: "deepseek-chat" },
   qwen: { apiKey: "", model: "qwen3-flash" },
   kimi: { apiKey: "", model: "kimi-k2.5" },
-  codex: { apiKey: "bait-local-codex", model: "gpt-5.4-mini" },
+  codex: { apiKey: "bait-local-codex", model: "gpt-5.3-codex-spark" },
 };
 
 export const DEFAULT_CONFIG: BaitConfig = {

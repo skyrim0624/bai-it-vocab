@@ -168,7 +168,7 @@ export function buildOpenAITextRequest(
 export function resolveFastTranslationConfig(config: LLMConfig): LLMConfig {
   const baseUrl = config.baseUrl.replace(/\/+$/, "");
   if (config.format === "openai-compatible" && baseUrl === "http://127.0.0.1:17877") {
-    return { ...config, model: "gpt-5.4-mini" };
+    return { ...config, model: "gpt-5.3-codex-spark" };
   }
   return config;
 }

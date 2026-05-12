@@ -1,6 +1,7 @@
 import http from "node:http";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -8,11 +9,43 @@ import path from "node:path";
 const HOST = process.env.BAIT_CODEX_HOST || "127.0.0.1";
 const PORT = Number.parseInt(process.env.BAIT_CODEX_PORT || "17877", 10);
 const BRIDGE_TOKEN = process.env.BAIT_CODEX_BRIDGE_TOKEN || "bait-local-codex";
-const CODEX_BIN = process.env.BAIT_CODEX_BIN || "codex";
-const CODEX_MODEL = process.env.BAIT_CODEX_MODEL || "gpt-5.4-mini";
+const APP_CODEX_BIN = "/Applications/Codex.app/Contents/Resources/codex";
+const CODEX_MODEL = process.env.BAIT_CODEX_MODEL || "gpt-5.3-codex-spark";
 const CODEX_CWD = process.env.BAIT_CODEX_CWD || process.cwd();
 const REQUEST_LIMIT_BYTES = Number.parseInt(process.env.BAIT_CODEX_REQUEST_LIMIT || "1048576", 10);
 const CODEX_TIMEOUT_MS = Number.parseInt(process.env.BAIT_CODEX_TIMEOUT_MS || "120000", 10);
+
+function canRunCodex(candidate) {
+  const result = spawnSync(candidate, ["--version"], { stdio: "ignore" });
+  return !result.error && result.status === 0;
+}
+
+function findCodexOnPath() {
+  const pathDirs = (process.env.PATH || "").split(path.delimiter).filter(Boolean);
+  for (const dir of pathDirs) {
+    const candidate = path.join(dir, "codex");
+    if (existsSync(candidate) && canRunCodex(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function resolveCodexBin() {
+  const explicit = process.env.BAIT_CODEX_BIN?.trim();
+  if (explicit) {
+    if (canRunCodex(explicit)) return explicit;
+    console.warn(`BAIT_CODEX_BIN is not runnable, falling back: ${explicit}`);
+  }
+
+  if (existsSync(APP_CODEX_BIN) && canRunCodex(APP_CODEX_BIN)) {
+    return APP_CODEX_BIN;
+  }
+
+  return findCodexOnPath() || "codex";
+}
+
+const CODEX_BIN = resolveCodexBin();
 
 function isAllowedOrigin(origin) {
   if (!origin) return true;
@@ -251,6 +284,7 @@ const server = http.createServer(async (req, res) => {
         ok: true,
         provider: "codex-cli",
         model: CODEX_MODEL,
+        codex_bin: CODEX_BIN,
         host: HOST,
         port: PORT,
       }, origin);
@@ -289,6 +323,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`Bai it Codex bridge is listening on http://${HOST}:${PORT}`);
+  console.log(`Codex binary: ${CODEX_BIN}`);
   console.log(`Model: ${CODEX_MODEL}`);
   console.log("Use this only on your own machine. Do not expose this port to the internet.");
 });

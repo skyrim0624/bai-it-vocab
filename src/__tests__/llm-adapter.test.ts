@@ -168,9 +168,9 @@ describe("buildOpenAIRequest", () => {
     expect(body.messages[0].content).toContain("只输出简体中文译文");
   });
 
-  it("Codex 翻译快路径使用 mini 模型", () => {
+  it("Codex 翻译快路径使用 spark 模型", () => {
     const fastConfig = resolveFastTranslationConfig(codexBridgeConfig);
-    expect(fastConfig.model).toBe("gpt-5.4-mini");
+    expect(fastConfig.model).toBe("gpt-5.3-codex-spark");
     expect(resolveFastTranslationConfig(openaiConfig).model).toBe("gpt-4o-mini");
   });
 });
