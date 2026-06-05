@@ -463,6 +463,7 @@ async function init(): Promise<void> {
   document.head.appendChild(style);
 
   setupTooltip();
+  ensurePageTranslateButton();
 
   // 加载用户已掌握的词
   try {
@@ -597,7 +598,6 @@ function deactivate(): void {
 
   hideTooltip();
   restorePageTranslation({ resumeFeatures: false });
-  removePageTranslateButton();
   restoreProcessedElements();
 
   // 移除手动触发按钮
@@ -980,11 +980,6 @@ function ensurePageTranslateButton(): void {
   document.body.appendChild(button);
   pageTranslationButton = button;
   updatePageTranslateButton();
-}
-
-function removePageTranslateButton(): void {
-  pageTranslationButton?.remove();
-  pageTranslationButton = null;
 }
 
 function updatePageTranslateButton(progress = ""): void {
