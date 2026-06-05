@@ -43,8 +43,23 @@ let queuedElements = new WeakSet<Element>();
 const knownWords = new Set<string>(); // 用户已掌握的词（从 storage 加载）
 let vocabDataPromise: Promise<void> | null = null;
 const translationCache = new Map<string, string>();
+type PageTranslationState = "idle" | "translating" | "translated";
+interface PageTranslationEntry {
+  element: HTMLElement;
+  originalHtml: string;
+}
+interface PageTranslationBlock extends PageTranslationEntry {
+  text: string;
+}
+
+let pageTranslationButton: HTMLButtonElement | null = null;
+let pageTranslationState: PageTranslationState = "idle";
+let pageTranslationEntries: PageTranslationEntry[] = [];
 
 const MAX_TRANSLATION_CACHE_SIZE = 50;
+const PAGE_TRANSLATE_BATCH_SIZE = 8;
+const PAGE_TRANSLATE_MAX_BLOCKS = 80;
+const PAGE_TRANSLATE_MAX_TOTAL_CHARS = 18000;
 const EXTENSION_CONTEXT_REFRESH_MESSAGE = "扩展刚刚更新，请刷新当前页面后再试。";
 
 // ========== 全局 Tooltip ==========
@@ -427,7 +442,21 @@ async function ensureVocabDataLoaded(): Promise<void> {
 
 // ========== 初始化 ==========
 
+function waitForDocumentBody(): Promise<void> {
+  if (document.body) return Promise.resolve();
+  return new Promise((resolve) => {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", () => resolve(), { once: true });
+    } else {
+      resolve();
+    }
+  });
+}
+
 async function init(): Promise<void> {
+  await waitForDocumentBody();
+  if (!document.body) return;
+
   const style = document.createElement("style");
   style.textContent = ENLEARN_STYLES;
   style.id = "enlearn-styles";
@@ -522,6 +551,7 @@ function activate(): void {
   isActive = true;
   isPaused = !chunkEnabled;
 
+  ensurePageTranslateButton();
   attachTranslateButtons();
   setupMutationObserver();
 
@@ -566,6 +596,8 @@ function deactivate(): void {
   queuedElements = new WeakSet<Element>();
 
   hideTooltip();
+  restorePageTranslation({ resumeFeatures: false });
+  removePageTranslateButton();
   restoreProcessedElements();
 
   // 移除手动触发按钮
@@ -728,6 +760,12 @@ function extractParagraphs(el: Element): string[] {
 interface TranslateTextResponse {
   ok: boolean;
   translation?: string;
+  error?: string;
+}
+
+interface TranslatePageTextsResponse {
+  ok: boolean;
+  translations?: string[];
   error?: string;
 }
 
@@ -919,6 +957,231 @@ function attachTranslateButtons(): void {
     target.insertAdjacentElement("afterend", block);
     article.setAttribute("data-enlearn-translate-attached", "1");
   }
+}
+
+// ========== 网页整页翻译 ==========
+
+function ensurePageTranslateButton(): void {
+  if (pageTranslationButton || !document.body) return;
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "enlearn-page-translate-fab";
+  button.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  button.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handlePageTranslateButtonClick().catch(() => {});
+  });
+
+  document.body.appendChild(button);
+  pageTranslationButton = button;
+  updatePageTranslateButton();
+}
+
+function removePageTranslateButton(): void {
+  pageTranslationButton?.remove();
+  pageTranslationButton = null;
+}
+
+function updatePageTranslateButton(progress = ""): void {
+  if (!pageTranslationButton) return;
+
+  const label = pageTranslationState === "translated"
+    ? "原"
+    : pageTranslationState === "translating"
+      ? (progress || "中")
+      : "译";
+  const title = pageTranslationState === "translated"
+    ? "恢复英文原文"
+    : pageTranslationState === "translating"
+      ? "正在翻译网页"
+      : "翻译当前网页";
+
+  pageTranslationButton.disabled = pageTranslationState === "translating";
+  pageTranslationButton.classList.toggle("is-translating", pageTranslationState === "translating");
+  pageTranslationButton.classList.toggle("is-translated", pageTranslationState === "translated");
+  pageTranslationButton.classList.remove("is-error");
+  pageTranslationButton.title = title;
+  pageTranslationButton.setAttribute("aria-label", title);
+  pageTranslationButton.innerHTML = `
+    ${TRANSLATE_ICON_SVG}
+    <span class="enlearn-page-translate-label">${escapeHtml(label)}</span>
+  `;
+}
+
+function showTemporaryPageTranslateStatus(label: string, title: string): void {
+  if (!pageTranslationButton) return;
+  pageTranslationButton.classList.add("is-error");
+  pageTranslationButton.title = title;
+  pageTranslationButton.setAttribute("aria-label", title);
+  pageTranslationButton.innerHTML = `<span class="enlearn-page-translate-label">${escapeHtml(label)}</span>`;
+  window.setTimeout(() => updatePageTranslateButton(), 1600);
+}
+
+async function handlePageTranslateButtonClick(): Promise<void> {
+  if (pageTranslationState === "translating") return;
+
+  if (pageTranslationState === "translated") {
+    restorePageTranslation({ resumeFeatures: true });
+    return;
+  }
+
+  await translateCurrentPage();
+}
+
+async function translateCurrentPage(): Promise<void> {
+  pageTranslationState = "translating";
+  updatePageTranslateButton();
+  hideTooltip();
+
+  // NOTE: 整页翻译直接改正文文本；先恢复掰句 DOM，避免翻译到拆分后的临时节点。
+  restoreProcessedElements();
+
+  const blocks = collectPageTranslationBlocks();
+  if (blocks.length === 0) {
+    pageTranslationState = "idle";
+    updatePageTranslateButton();
+    showTemporaryPageTranslateStatus("无", "当前页面没有找到可翻译的英文正文");
+    return;
+  }
+
+  pageTranslationEntries = blocks.map(({ element, originalHtml }) => ({
+    element,
+    originalHtml,
+  }));
+
+  try {
+    let completed = 0;
+    updatePageTranslateButton(`${completed}/${blocks.length}`);
+
+    for (let i = 0; i < blocks.length; i += PAGE_TRANSLATE_BATCH_SIZE) {
+      const batch = blocks.slice(i, i + PAGE_TRANSLATE_BATCH_SIZE);
+      const response = await sendMessage({
+        type: "translatePageTexts",
+        texts: batch.map((block) => block.text),
+        source_url: window.location.href,
+      }) as TranslatePageTextsResponse;
+
+      if (!response?.ok || !response.translations) {
+        throw new Error(response?.error || "翻译失败");
+      }
+
+      batch.forEach((block, batchIndex) => {
+        const translation = response.translations?.[batchIndex]?.trim();
+        if (!translation) return;
+        applyPageTranslation(block, translation);
+      });
+
+      completed += batch.length;
+      updatePageTranslateButton(`${completed}/${blocks.length}`);
+    }
+
+    pageTranslationState = "translated";
+    updatePageTranslateButton();
+  } catch (err) {
+    restorePageTranslation({ resumeFeatures: true });
+    const message = getUserFacingErrorMessage(err, "请检查 API Key 或网络");
+    showTemporaryPageTranslateStatus("错", isExtensionContextError(err) ? message : `整页翻译失败：${message}`);
+  }
+}
+
+function collectPageTranslationBlocks(): PageTranslationBlock[] {
+  const selector = [
+    "h1", "h2", "h3",
+    "article p", "main p", "[role='main'] p", "section p",
+    "article li", "main li", "[role='main'] li",
+    "article blockquote", "main blockquote", "[role='main'] blockquote",
+    "article figcaption", "main figcaption", "[role='main'] figcaption",
+    ".content p", ".post p", ".entry-content p", ".article-body p", "#content p", ".page-content p",
+  ].join(", ");
+  const candidates = Array.from(document.body.querySelectorAll<HTMLElement>(selector));
+  const blocks: PageTranslationBlock[] = [];
+  const seenText = new Set<string>();
+  let totalChars = 0;
+
+  for (const element of candidates) {
+    if (blocks.length >= PAGE_TRANSLATE_MAX_BLOCKS || totalChars >= PAGE_TRANSLATE_MAX_TOTAL_CHARS) break;
+    if (!isPageTranslatableElement(element)) continue;
+
+    const text = normalizeTranslationText(extractTextFromDOM(element));
+    if (!text || seenText.has(text)) continue;
+    if (!isEnglish(text)) continue;
+
+    const words = text.split(/\s+/).filter(Boolean).length;
+    if (words < getMinimumPageTranslationWords(element) && text.length < 18) continue;
+
+    blocks.push({
+      element,
+      text,
+      originalHtml: element.innerHTML,
+    });
+    seenText.add(text);
+    totalChars += text.length;
+  }
+
+  return blocks;
+}
+
+function isPageTranslatableElement(element: HTMLElement): boolean {
+  if (isEnlearnElement(element)) return false;
+  if (element.closest(".enlearn-page-translate-fab, .enlearn-tooltip, .enlearn-translate-block")) return false;
+  if (element.closest("nav, header, footer, aside, form, [role='navigation'], [role='banner'], [role='complementary'], [role='toolbar'], [role='menu'], [role='tablist']")) return false;
+  if (element.closest("[contenteditable='true'], [aria-hidden='true'], [hidden]")) return false;
+  if (element.querySelector("input, textarea, select, button, script, style, noscript, svg, canvas, iframe")) return false;
+  if (element.tagName === "LI" && element.querySelector("p, h1, h2, h3, blockquote")) return false;
+  return isVisibleForPageTranslation(element);
+}
+
+function isVisibleForPageTranslation(element: HTMLElement): boolean {
+  const style = window.getComputedStyle(element);
+  if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
+  const rect = element.getBoundingClientRect();
+  return rect.width > 1 && rect.height > 1;
+}
+
+function getMinimumPageTranslationWords(element: HTMLElement): number {
+  if (/^H[1-3]$/.test(element.tagName)) return 2;
+  if (element.tagName === "LI" || element.tagName === "FIGCAPTION") return 4;
+  return 5;
+}
+
+function applyPageTranslation(block: PageTranslationBlock, translation: string): void {
+  block.element.textContent = translation;
+  block.element.classList.add("enlearn-page-translated");
+  block.element.setAttribute("data-enlearn-page-translated", "1");
+}
+
+function restorePageTranslation({ resumeFeatures }: { resumeFeatures: boolean }): void {
+  for (const entry of pageTranslationEntries) {
+    if (!entry.element.isConnected) continue;
+    entry.element.innerHTML = entry.originalHtml;
+    entry.element.classList.remove("enlearn-page-translated");
+    entry.element.removeAttribute("data-enlearn-page-translated");
+  }
+
+  pageTranslationEntries = [];
+  pageTranslationState = "idle";
+  updatePageTranslateButton();
+
+  if (!resumeFeatures || !isActive || !chunkEnabled) return;
+
+  processedElements = new WeakSet<Element>();
+  pendingElements.clear();
+  processQueue.length = 0;
+  queuedElements = new WeakSet<Element>();
+  if (processTimer) {
+    clearTimeout(processTimer);
+    processTimer = null;
+  }
+  if (mutationScanTimer) {
+    clearTimeout(mutationScanTimer);
+    mutationScanTimer = null;
+  }
+  scanPage();
 }
 
 /**
@@ -1452,6 +1715,8 @@ function findTextLeafElements(): Element[] {
 
 function scanPage(): void {
   if (!isActive) return;
+  ensurePageTranslateButton();
+  if (pageTranslationState !== "idle") return;
 
   // NOTE: 帖子翻译只依赖页面文本和后台 LLM，不应该被离线词库加载状态卡住。
   attachTranslateButtons();
@@ -1565,7 +1830,9 @@ function isEnlearnElement(el: Element): boolean {
   return el.closest(".enlearn-chunked") !== null ||
     el.classList.contains("enlearn-chunked") ||
     el.closest(".enlearn-translate-block") !== null ||
-    el.classList.contains("enlearn-translate-block");
+    el.classList.contains("enlearn-translate-block") ||
+    el.closest(".enlearn-page-translate-fab") !== null ||
+    el.classList.contains("enlearn-page-translate-fab");
 }
 
 // ========== 手动触发 ==========

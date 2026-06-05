@@ -4,14 +4,17 @@ import {
   buildGeminiTextRequest,
   buildGeminiRequest,
   buildOpenAIRequest,
+  buildOpenAIJsonRequest,
   buildOpenAITextRequest,
   parseGeminiResponse,
   parseOpenAIResponse,
   parseChunkJson,
   mapToChunkResults,
   buildTranslationPrompt,
+  buildPageTranslationPrompt,
   buildWordDefinitionPrompt,
   parseWordDefinitionJson,
+  parsePageTranslationJson,
   parseTranslationJson,
   parseTranslationText,
   resolveFastTranslationConfig,
@@ -80,6 +83,16 @@ describe("buildTranslationPrompt", () => {
     expect(prompt).toContain("I have open-sourced the project.");
     expect(prompt).toContain("简体中文");
     expect(prompt).toContain("只输出译文");
+  });
+});
+
+describe("buildPageTranslationPrompt", () => {
+  it("包含逐块翻译要求和 JSON 输出字段", () => {
+    const prompt = buildPageTranslationPrompt(["Yellow Arrow Case Study", "This project invited participants."]);
+    expect(prompt).toContain("[0] Yellow Arrow Case Study");
+    expect(prompt).toContain("[1] This project invited participants.");
+    expect(prompt).toContain('"translations"');
+    expect(prompt).toContain("不要合并条目");
   });
 });
 
@@ -172,6 +185,14 @@ describe("buildOpenAIRequest", () => {
     const fastConfig = resolveFastTranslationConfig(codexBridgeConfig);
     expect(fastConfig.model).toBe("gpt-5.3-codex-spark");
     expect(resolveFastTranslationConfig(openaiConfig).model).toBe("gpt-4o-mini");
+  });
+});
+
+describe("buildOpenAIJsonRequest", () => {
+  it("使用 JSON response_format", () => {
+    const { body } = buildOpenAIJsonRequest("translate page", openaiConfig, 500);
+    expect(body.response_format).toEqual({ type: "json_object" });
+    expect(body.max_tokens).toBe(500);
   });
 });
 
@@ -278,6 +299,21 @@ describe("parseTranslationJson", () => {
 
   it("空翻译抛错", () => {
     expect(() => parseTranslationJson('{"translation":""}')).toThrow("空翻译");
+  });
+});
+
+describe("parsePageTranslationJson", () => {
+  it("解析整页翻译 JSON 对象", () => {
+    const items = parsePageTranslationJson('{"translations":[{"index":0,"translation":"黄色箭头案例研究"},{"index":1,"translation":"这个项目邀请参与者。"}]}');
+    expect(items).toEqual([
+      { index: 0, translation: "黄色箭头案例研究" },
+      { index: 1, translation: "这个项目邀请参与者。" },
+    ]);
+  });
+
+  it("兼容 markdown fence 和直接数组", () => {
+    const items = parsePageTranslationJson("```json\n[{\"index\":0,\"translation\":\"你好\"}]\n```");
+    expect(items).toEqual([{ index: 0, translation: "你好" }]);
   });
 });
 

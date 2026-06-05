@@ -299,6 +299,75 @@ export const ENLEARN_STYLES = `
   color: #991b1b;
 }
 
+/* 网页整页翻译浮动按钮 */
+.enlearn-page-translate-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 92px;
+  z-index: 2147483647;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 50px;
+  height: 44px;
+  padding: 0 10px;
+  border: 2px solid #2d2a32;
+  border-radius: 8px;
+  background: #fffdf6;
+  color: #202233;
+  box-shadow: 4px 4px 0 rgba(45, 42, 50, 0.16), 0 14px 30px rgba(45, 42, 50, 0.14);
+  cursor: pointer;
+  pointer-events: auto !important;
+  font-family: "Comic Sans MS", "Bradley Hand", "Chalkboard SE", "Marker Felt", ui-rounded, system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  transition: transform 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.enlearn-page-translate-fab svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.enlearn-page-translate-fab:hover {
+  background: #fff3d7;
+  transform: translateY(-1px);
+  box-shadow: 5px 5px 0 rgba(45, 42, 50, 0.16), 0 18px 34px rgba(45, 42, 50, 0.16);
+}
+
+.enlearn-page-translate-fab:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.enlearn-page-translate-fab:disabled {
+  cursor: wait;
+  opacity: 0.82;
+  transform: none;
+}
+
+.enlearn-page-translate-fab.is-translated {
+  background: #dff3ff;
+}
+
+.enlearn-page-translate-fab.is-error {
+  background: #fff1f3;
+  color: #9f1d35;
+}
+
+.enlearn-page-translated {
+  background: rgba(255, 247, 232, 0.42);
+  border-radius: 4px;
+  transition: background 0.16s ease;
+}
+
 /* 手动触发按钮 — inline 显示，不会被 overflow:hidden 裁剪 */
 .enlearn-trigger {
   display: inline-flex;
@@ -487,6 +556,29 @@ body.enlearn-paused .enlearn-original-hidden { display: block !important; }
     color: #fecaca;
   }
 
+  .enlearn-page-translate-fab {
+    background: #fffdf6;
+    color: #202233;
+    border-color: #2d2a32;
+  }
+
+  .enlearn-page-translate-fab:hover {
+    background: #fff3d7;
+  }
+
+  .enlearn-page-translate-fab.is-translated {
+    background: #dff3ff;
+  }
+
+  .enlearn-page-translate-fab.is-error {
+    background: #fff1f3;
+    color: #9f1d35;
+  }
+
+  .enlearn-page-translated {
+    background: rgba(255, 247, 232, 0.22);
+  }
+
   .enlearn-trigger {
     color: rgba(96, 165, 250, 0.35);
   }
@@ -580,6 +672,7 @@ body.enlearn-paused .enlearn-original-hidden { display: block !important; }
   .enlearn-tooltip,
   .enlearn-tooltip-btn,
   .enlearn-translate-btn,
+  .enlearn-page-translate-fab,
   .enlearn-word,
   .enlearn-trigger,
   .enlearn-loading::after {

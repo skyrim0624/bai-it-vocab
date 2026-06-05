@@ -12,7 +12,7 @@
 import type { Message, BaitConfig, ChunkResult, PatternKey, DictionaryLookupResult } from "../shared/types.ts";
 import { DEFAULT_CONFIG, resolveLLMConfig, migrateLLMConfig } from "../shared/types.ts";
 import { clearCache, getCachedBatch, setCacheBatch } from "../shared/cache.ts";
-import { chunkSentences, analyzeSentenceFull, defineWordToChinese, translateTextToChinese } from "../shared/llm-adapter.ts";
+import { chunkSentences, analyzeSentenceFull, defineWordToChinese, translateTextToChinese, translatePageTextsToChinese } from "../shared/llm-adapter.ts";
 import { clearLearningData, openDB as openDataDB, pendingSentenceDAO, learningRecordDAO, vocabContextDAO, vocabDAO } from "../shared/db.ts";
 import { recordVocabEncounters } from "../shared/vocab-recording.ts";
 import { buildVocabEntries } from "../shared/vocab-export.ts";
@@ -624,6 +624,30 @@ async function handleMessage(
       try {
         const translation = await translateTextToChinese(text.slice(0, 5000), llmCfg);
         return { ok: true, translation };
+      } catch (err) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : "翻译失败",
+        };
+      }
+    }
+
+    case "translatePageTexts": {
+      const texts = message.texts.map((text) => text.trim()).filter((text) => text.length > 0);
+      if (texts.length === 0) return { ok: false, error: "没有可翻译的内容" };
+
+      const cfg = await getConfig();
+      const llmCfg = resolveLLMConfig(cfg.llm);
+      if (!llmCfg.apiKey) {
+        return { ok: false, error: "API key 未配置" };
+      }
+
+      try {
+        const translations = await translatePageTextsToChinese(
+          texts.map((text) => text.slice(0, 3500)),
+          llmCfg
+        );
+        return { ok: true, translations };
       } catch (err) {
         return {
           ok: false,

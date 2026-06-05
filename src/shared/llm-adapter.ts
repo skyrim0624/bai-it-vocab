@@ -165,6 +165,36 @@ export function buildOpenAITextRequest(
   return { url, body, headers };
 }
 
+export function buildOpenAIJsonRequest(
+  prompt: string,
+  config: LLMConfig,
+  maxTokens?: number
+): { url: string; body: OpenAIRequestBody; headers: Record<string, string> } {
+  const baseUrl = config.baseUrl.replace(/\/+$/, "");
+  const url = `${baseUrl}/v1/chat/completions`;
+
+  const body: OpenAIRequestBody = {
+    model: config.model,
+    messages: [
+      { role: "system", content: "你是网页英译中引擎。始终返回合法 JSON，不要输出额外说明。" },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0,
+    response_format: { type: "json_object" },
+  };
+
+  if (maxTokens) {
+    body.max_tokens = maxTokens;
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${config.apiKey}`,
+  };
+
+  return { url, body, headers };
+}
+
 export function resolveFastTranslationConfig(config: LLMConfig): LLMConfig {
   const baseUrl = config.baseUrl.replace(/\/+$/, "");
   if (config.format === "openai-compatible" && baseUrl === "http://127.0.0.1:17877") {
@@ -197,6 +227,11 @@ interface OpenAIResponse {
       content?: string;
     };
   }[];
+}
+
+interface PageTranslationItem {
+  index: number;
+  translation: string;
 }
 
 export function parseGeminiResponse(data: unknown): LLMChunkItem[] {
@@ -396,6 +431,26 @@ export function buildTranslationPrompt(text: string): string {
 ${text}`;
 }
 
+export function buildPageTranslationPrompt(texts: string[]): string {
+  return `你是网页整页翻译引擎。把下面英文网页文本块逐条翻译成自然、准确、适合阅读的简体中文。
+
+规则：
+- 保持输入顺序和 index，不要漏项，不要合并条目。
+- 保留人名、机构名、地名、产品名、URL、代码词、年份和数字。
+- 译文要像中文文章，不要像机器直译。
+- 只返回 JSON，不要解释。
+
+输出格式：
+{
+  "translations": [
+    { "index": 0, "translation": "中文译文" }
+  ]
+}
+
+输入：
+${texts.map((text, index) => `[${index}] ${text}`).join("\n\n")}`;
+}
+
 export function parseTranslationJson(text: string): string {
   let cleaned = text.trim();
   const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -436,6 +491,46 @@ export function parseTranslationText(text: string): string {
       .replace(/^["“]|["”]$/g, "")
       .trim();
   }
+}
+
+export function parsePageTranslationJson(text: string): PageTranslationItem[] {
+  let cleaned = text.trim();
+  const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    cleaned = fenceMatch[1].trim();
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    throw new Error(`LLM 返回的 JSON 格式无效: ${cleaned.slice(0, 100)}...`);
+  }
+
+  if (Array.isArray(parsed)) {
+    return normalizePageTranslationItems(parsed);
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("LLM 返回的整页翻译结果不是对象");
+  }
+
+  const translations = (parsed as Record<string, unknown>).translations;
+  if (!Array.isArray(translations)) {
+    throw new Error("LLM 返回的整页翻译结果缺少 translations 数组");
+  }
+
+  return normalizePageTranslationItems(translations);
+}
+
+function normalizePageTranslationItems(items: unknown[]): PageTranslationItem[] {
+  return items.map((item, fallbackIndex) => {
+    const obj = item && typeof item === "object" ? item as Record<string, unknown> : {};
+    return {
+      index: Number.isFinite(Number(obj.index)) ? Number(obj.index) : fallbackIndex,
+      translation: String(obj.translation || "").trim(),
+    };
+  }).filter((item) => item.translation.length > 0);
 }
 
 // ========== 单词释义 ==========
@@ -575,12 +670,70 @@ export async function translateTextToChinese(
   return parseTranslationText(responseText);
 }
 
+export async function translatePageTextsToChinese(
+  texts: string[],
+  config: LLMConfig
+): Promise<string[]> {
+  const prompt = buildPageTranslationPrompt(texts);
+  const totalChars = texts.reduce((sum, text) => sum + text.length, 0);
+  const maxTokens = Math.min(6000, Math.max(600, Math.ceil(totalChars * 1.5)));
+  const translationConfig = resolveFastTranslationConfig(config);
+
+  let responseData: unknown;
+
+  if (config.format === "gemini") {
+    const { url, body } = buildGeminiRequest(prompt, config);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini API 错误 (${response.status}): ${errorText.slice(0, 200)}`);
+    }
+    responseData = await response.json();
+  } else {
+    try {
+      responseData = await fetchOpenAIJsonResponse(prompt, translationConfig, maxTokens);
+    } catch (err) {
+      if (translationConfig.model !== config.model && shouldRetryOriginalTranslationModel(err)) {
+        responseData = await fetchOpenAIJsonResponse(prompt, config, maxTokens);
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  const responseText = extractResponseText(responseData, config.format);
+  const items = parsePageTranslationJson(responseText);
+  return texts.map((text, index) => items.find((item) => item.index === index)?.translation || text);
+}
+
 async function fetchOpenAITextResponse(
   prompt: string,
   config: LLMConfig,
   maxTokens: number
 ): Promise<unknown> {
   const { url, body, headers } = buildOpenAITextRequest(prompt, config, maxTokens);
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI API 错误 (${response.status}): ${errorText.slice(0, 200)}`);
+  }
+  return response.json();
+}
+
+async function fetchOpenAIJsonResponse(
+  prompt: string,
+  config: LLMConfig,
+  maxTokens: number
+): Promise<unknown> {
+  const { url, body, headers } = buildOpenAIJsonRequest(prompt, config, maxTokens);
   const response = await fetch(url, {
     method: "POST",
     headers,

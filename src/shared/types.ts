@@ -179,6 +179,11 @@ export type Message =
       text: string;
       source_url?: string;
     }
+  | {
+      type: "translatePageTexts";
+      texts: string[];
+      source_url?: string;
+    }
   | { type: "resetLearningData" }
   | { type: "markWordMastered"; word: string }
   | { type: "generatePracticeSentence"; word?: string }
